@@ -1,2 +1,22 @@
-// Regex parser declarations will go here.
-// The first version will support only the syntax we decide for the baseline.
+#ifndef REGEX_PARSER_HPP
+#define REGEX_PARSER_HPP
+
+#include <string>
+#include <vector>
+
+enum class RegexTokenType {
+    Literal,
+    Union,
+    Star,
+    LeftParen,
+    RightParen
+};
+
+struct RegexToken {
+    RegexTokenType type;
+    char value;
+};
+
+std::vector<RegexToken> tokenize_regex(const std::string& pattern);
+
+#endif
