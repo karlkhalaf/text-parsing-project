@@ -1,2 +1,6 @@
-// Entry point for the regex matcher command-line program.
-// For now it is only a placeholder before we implement the sequential baseline.
+#include <iostream>
+
+int main() {
+    std::cout << "regex_matcher: sequential DFA baseline in progress\n";
+    return 0;
+}

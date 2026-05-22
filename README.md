@@ -311,9 +311,12 @@ Current repository status:
 - main references identified: Holub and Stekr, PaREM, SFA
 - planned approach fixed: sequential DFA first, parallel CPU DFA second, benchmarks third, optimizations after correctness
 - repository roadmap created in this README
-- implementation not yet committed in this repository
+- first C++ project skeleton added
+- basic DFA representation and sequential full-text acceptance started
+- first small DFA test added using a manually built automaton
+- regex parser, NFA construction, DFA construction from regex, and parallel matching are not implemented yet
 
-The next commit should add the first minimal code structure and the sequential DFA baseline.
+The next step is to define the first supported regex syntax and connect it to this DFA baseline gradually.
 
 ## References
 
