@@ -314,6 +314,7 @@ Current repository status:
 - first C++ project skeleton added
 - basic DFA representation and sequential full-text acceptance started
 - first small DFA test added using a manually built automaton
+- first regex tokenizer started for literals, |, *, and parentheses
 - regex parser, NFA construction, DFA construction from regex, and parallel matching are not implemented yet
 
 The next step is to define the first supported regex syntax and connect it to this DFA baseline gradually.

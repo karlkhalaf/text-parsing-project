@@ -18,3 +18,7 @@ enable_testing()
 add_executable(test_dfa tests/test_dfa.cpp)
 target_link_libraries(test_dfa PRIVATE regex_core)
 add_test(NAME test_dfa COMMAND test_dfa)
+
+add_executable(test_regex tests/test_regex.cpp)
+target_link_libraries(test_regex PRIVATE regex_core)
+add_test(NAME test_regex COMMAND test_regex)
