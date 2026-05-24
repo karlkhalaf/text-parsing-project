@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_library(regex_core
     src/dfa.cpp
+    src/nfa.cpp
     src/regex_parser.cpp
 )
 target_include_directories(regex_core PUBLIC src)
