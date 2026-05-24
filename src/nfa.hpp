@@ -2,6 +2,7 @@
 #define NFA_HPP
 
 #include <cstddef>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -15,12 +16,16 @@ public:
     void add_transition(std::size_t from, char symbol, std::size_t to);
     void add_epsilon(std::size_t from, std::size_t to);
 
+    bool accepts(std::string_view text) const;
+
     std::size_t state_count() const;
     std::size_t initial_state() const;
     bool is_final(std::size_t state) const;
 
 private:
     void check_state(std::size_t state) const;
+    std::vector<std::size_t> epsilon_closure(std::vector<std::size_t> states) const;
+    std::vector<std::size_t> move(std::vector<std::size_t> states, char symbol) const;
 
     std::size_t initial_state_;
     std::vector<bool> final_states_;

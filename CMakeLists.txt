@@ -23,3 +23,7 @@ add_test(NAME test_dfa COMMAND test_dfa)
 add_executable(test_regex tests/test_regex.cpp)
 target_link_libraries(test_regex PRIVATE regex_core)
 add_test(NAME test_regex COMMAND test_regex)
+
+add_executable(test_nfa tests/test_nfa.cpp)
+target_link_libraries(test_nfa PRIVATE regex_core)
+add_test(NAME test_nfa COMMAND test_nfa)
