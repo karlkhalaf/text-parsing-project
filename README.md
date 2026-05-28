@@ -321,6 +321,7 @@ Current repository status:
 - Thompson construction builds an NFA from postfix regexes for our supported syntax
 - NFA to DFA, CLI regex matching, and parallel matching are not implemented yet
 - subset construction converts NFA to DFA for the supported regex subset
+- end-to-end sequential matcher added: regex -> NFA -> DFA -> accepts(text)
 
 The next step is to define the first supported regex syntax and connect it to this DFA baseline gradually.
 

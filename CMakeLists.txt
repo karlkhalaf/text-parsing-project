@@ -9,6 +9,7 @@ add_library(regex_core
     src/nfa.cpp
     src/nfa_builder.cpp
     src/dfa_builder.cpp
+    src/matcher.cpp
     src/regex_parser.cpp
 )
 target_include_directories(regex_core PUBLIC src)
