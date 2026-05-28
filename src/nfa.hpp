@@ -21,6 +21,8 @@ public:
     std::size_t state_count() const;
     std::size_t initial_state() const;
     bool is_final(std::size_t state) const;
+    const std::unordered_map<char, std::size_t>& transitions_from(std::size_t state) const;
+    const std::vector<std::size_t>& epsilon_from(std::size_t state) const;
 
 private:
     void check_state(std::size_t state) const;
