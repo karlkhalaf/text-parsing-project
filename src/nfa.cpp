@@ -109,3 +109,12 @@ std::vector<std::size_t> Nfa::move(std::vector<std::size_t> states, char symbol)
 
     return std::vector<std::size_t>(result.begin(), result.end());
 }
+
+const std::unordered_map<char, std::size_t>& Nfa::transitions_from(std::size_t state) const {
+    check_state(state);
+    return transitions_[state];
+}
+const std::vector<std::size_t>& Nfa::epsilon_from(std::size_t state) const {
+    check_state(state);
+    return epsilon_transitions_[state];
+}

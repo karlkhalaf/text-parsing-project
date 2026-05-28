@@ -8,6 +8,7 @@ add_library(regex_core
     src/dfa.cpp
     src/nfa.cpp
     src/nfa_builder.cpp
+    src/dfa_builder.cpp
     src/regex_parser.cpp
 )
 target_include_directories(regex_core PUBLIC src)
@@ -32,3 +33,7 @@ add_test(NAME test_nfa COMMAND test_nfa)
 add_executable(test_nfa_builder tests/test_nfa_builder.cpp)
 target_link_libraries(test_nfa_builder PRIVATE regex_core)
 add_test(NAME test_nfa_builder COMMAND test_nfa_builder)
+
+add_executable(test_dfa_builder tests/test_dfa_builder.cpp)
+target_link_libraries(test_dfa_builder PRIVATE regex_core)
+add_test(NAME test_dfa_builder COMMAND test_dfa_builder)
