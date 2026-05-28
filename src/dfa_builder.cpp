@@ -1,4 +1,5 @@
 #include "dfa_builder.hpp"
+
 #include <algorithm>
 #include <queue>
 #include <stdexcept>
@@ -76,7 +77,7 @@ Dfa build_dfa_from_nfa(const Nfa& nfa) {
     while (!q.empty()) {
         const std::size_t from_id = q.front();
         q.pop();
-        const auto& from_subset = subsets[from_id];
+        const std::vector<std::size_t> from_subset = subsets[from_id];
         for (char c : alphabet) {
             const std::vector<std::size_t> moved = move_set(nfa, from_subset, c);
             if (moved.empty()) continue;
