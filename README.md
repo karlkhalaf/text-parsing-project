@@ -319,12 +319,13 @@ Current repository status:
 - small NFA test added for a manual `a|b` automaton
 - regex parser can build postfix notation for literals, concatenation, union, star, and parentheses
 - Thompson construction builds an NFA from postfix regexes for our supported syntax
-- NFA to DFA, CLI regex matching, and parallel matching are not implemented yet
 - subset construction converts NFA to DFA for the supported regex subset
 - end-to-end sequential matcher added: regex -> NFA -> DFA -> accepts(text)
 - end-to-end sequential tests added
+- parallel DFA chunk simulation and mapping composition added (Holub-style, single-threaded for now)
+- multi-threaded parallel matching and benchmarks are not implemented yet
 
-The next step is to define the first supported regex syntax and connect it to this DFA baseline gradually.
+The next step is multi-threaded parallel DFA matching and benchmarks.
 
 ## References
 

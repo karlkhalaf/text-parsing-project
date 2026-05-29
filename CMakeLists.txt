@@ -10,6 +10,7 @@ add_library(regex_core
     src/nfa_builder.cpp
     src/dfa_builder.cpp
     src/matcher.cpp
+    src/parallel_matcher.cpp
     src/regex_parser.cpp
 )
 target_include_directories(regex_core PUBLIC src)
@@ -42,3 +43,7 @@ add_test(NAME test_dfa_builder COMMAND test_dfa_builder)
 add_executable(test_sequential tests/test_sequential.cpp)
 target_link_libraries(test_sequential PRIVATE regex_core)
 add_test(NAME test_sequential COMMAND test_sequential)
+
+add_executable(test_parallel tests/test_parallel.cpp)
+target_link_libraries(test_parallel PRIVATE regex_core)
+add_test(NAME test_parallel COMMAND test_parallel)
