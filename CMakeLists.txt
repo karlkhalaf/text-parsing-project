@@ -38,3 +38,7 @@ add_test(NAME test_nfa_builder COMMAND test_nfa_builder)
 add_executable(test_dfa_builder tests/test_dfa_builder.cpp)
 target_link_libraries(test_dfa_builder PRIVATE regex_core)
 add_test(NAME test_dfa_builder COMMAND test_dfa_builder)
+
+add_executable(test_sequential tests/test_sequential.cpp)
+target_link_libraries(test_sequential PRIVATE regex_core)
+add_test(NAME test_sequential COMMAND test_sequential)
