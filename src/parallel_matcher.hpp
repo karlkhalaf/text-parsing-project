@@ -17,4 +17,7 @@ ChunkMapping compose_mappings(const ChunkMapping& left, const ChunkMapping& righ
 
 bool parallel_accepts(const Dfa& dfa, std::string_view text, std::size_t chunk_count);
 
+// Same algorithm as parallel_accepts, but each chunk mapping runs on its own thread.
+bool parallel_accepts_threads(const Dfa& dfa, std::string_view text, std::size_t thread_count);
+
 #endif

@@ -1,4 +1,5 @@
 #include "matcher.hpp"
+#include "parallel_matcher.hpp"
 
 #include <exception>
 #include <iostream>
@@ -7,6 +8,8 @@
 int main(int argc, char** argv) {
     std::string pattern;
     std::string text;
+    std::string mode = "sequential";
+    std::size_t threads = 4;
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -14,8 +17,13 @@ int main(int argc, char** argv) {
             pattern = argv[++i];
         } else if (arg == "--text" && i + 1 < argc) {
             text = argv[++i];
+        } else if (arg == "--mode" && i + 1 < argc) {
+            mode = argv[++i];
+        } else if (arg == "--threads" && i + 1 < argc) {
+            threads = static_cast<std::size_t>(std::stoul(argv[++i]));
         } else if (arg == "--help") {
-            std::cout << "Usage: regex_matcher --regex PATTERN --text TEXT\n";
+            std::cout << "Usage: regex_matcher --regex PATTERN --text TEXT "
+                         "[--mode sequential|parallel] [--threads N]\n";
             return 0;
         }
     }
@@ -27,7 +35,15 @@ int main(int argc, char** argv) {
 
     try {
         const Dfa dfa = build_dfa_from_regex(pattern);
-        const bool ok = dfa.accepts(text);
+        bool ok = false;
+        if (mode == "sequential") {
+            ok = dfa.accepts(text);
+        } else if (mode == "parallel") {
+            ok = parallel_accepts_threads(dfa, text, threads);
+        } else {
+            std::cerr << "Unknown --mode (use sequential or parallel)\n";
+            return 1;
+        }
         std::cout << (ok ? "ACCEPT\n" : "REJECT\n");
         return ok ? 0 : 2;
     } catch (const std::exception& e) {

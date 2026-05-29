@@ -296,9 +296,8 @@ The build system should stay simple, probably CMake or a Makefile. The code shou
 The intended command-line interface may look like this:
 
 ```bash
-./regex_matcher --regex "ab*c" --input data/sample.txt --mode sequential
-./regex_matcher --regex "ab*c" --input data/sample.txt --mode parallel --threads 8
-./regex_matcher --regex "ab*c" --input data/sample.txt --mode parem --threads 8
+./regex_matcher --regex "(a|b)*" --text "abba" --mode sequential
+./regex_matcher --regex "(a|b)*" --text "abba" --mode parallel --threads 4
 ```
 
 The exact interface may change as the implementation becomes clearer.
@@ -323,9 +322,10 @@ Current repository status:
 - end-to-end sequential matcher added: regex -> NFA -> DFA -> accepts(text)
 - end-to-end sequential tests added
 - parallel DFA chunk simulation and mapping composition added (Holub-style, single-threaded for now)
-- multi-threaded parallel matching and benchmarks are not implemented yet
+- parallel multi-threaded DFA matching added (chunk mappings computed with std::thread)
+- benchmarks are not implemented yet
 
-The next step is multi-threaded parallel DFA matching and benchmarks.
+The next step is to add small benchmark inputs and compare sequential and parallel timings.
 
 ## References
 

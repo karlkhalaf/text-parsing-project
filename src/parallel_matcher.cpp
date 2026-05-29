@@ -1,6 +1,7 @@
 #include "parallel_matcher.hpp"
 
 #include <optional>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -86,6 +87,45 @@ bool parallel_accepts(const Dfa& dfa, std::string_view text, std::size_t chunk_c
     ChunkMapping total = simulate_chunk(dfa, chunks[0]);
     for (std::size_t i = 1; i < chunks.size(); ++i) {
         total = compose_mappings(total, simulate_chunk(dfa, chunks[i]));
+    }
+
+    const std::size_t end_state = total[dfa.initial_state()];
+    if (end_state == INVALID_STATE) {
+        return false;
+    }
+    return dfa.is_final(end_state);
+}
+
+bool parallel_accepts_threads(const Dfa& dfa, std::string_view text, std::size_t thread_count) {
+    if (thread_count == 0) {
+        return false;
+    }
+    if (thread_count == 1) {
+        return dfa.accepts(text);
+    }
+
+    const std::vector<std::string_view> chunks = split_text(text, thread_count);
+    if (chunks.empty()) {
+        return dfa.is_final(dfa.initial_state());
+    }
+
+    std::vector<ChunkMapping> mappings(chunks.size());
+    std::vector<std::thread> workers;
+    workers.reserve(chunks.size());
+
+    for (std::size_t i = 0; i < chunks.size(); ++i) {
+        workers.emplace_back([&dfa, &chunks, &mappings, i]() {
+            mappings[i] = simulate_chunk(dfa, chunks[i]);
+        });
+    }
+
+    for (std::thread& worker : workers) {
+        worker.join();
+    }
+
+    ChunkMapping total = mappings[0];
+    for (std::size_t i = 1; i < mappings.size(); ++i) {
+        total = compose_mappings(total, mappings[i]);
     }
 
     const std::size_t end_state = total[dfa.initial_state()];
