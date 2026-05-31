@@ -289,18 +289,30 @@ Large generated input files should not be committed. The repository should conta
 
 ## Build And Run
 
-This section will be updated once the first implementation is committed.
+The build system is CMake. On a machine with CMake installed, the usual commands are:
 
-The build system should stay simple, probably CMake or a Makefile. The code should compile with a standard modern C++ compiler. The first parallel implementation will use CPU shared-memory parallelism, either OpenMP or `std::thread`.
+```bash
+cmake -B build
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
 
-The intended command-line interface may look like this:
+The command-line interface currently supports sequential and parallel full-text matching:
 
 ```bash
 ./regex_matcher --regex "(a|b)*" --text "abba" --mode sequential
 ./regex_matcher --regex "(a|b)*" --text "abba" --mode parallel --threads 4
 ```
 
-The exact interface may change as the implementation becomes clearer.
+The benchmark scripts are a first baseline for the current implementation. They generate small input files, run the sequential and current parallel matcher, and prepare a CSV summary:
+
+```bash
+python3 scripts/generate_inputs.py
+python3 scripts/run_benchmarks.py --exe build/regex_matcher
+python3 scripts/plot_results.py
+```
+
+Generated input files and result files are ignored by Git. We will use the same scripts as a starting point for the final comparison with the optimized versions.
 
 ## Current Status
 
@@ -323,9 +335,10 @@ Current repository status:
 - end-to-end sequential tests added
 - parallel DFA chunk simulation and mapping composition added (Holub-style, single-threaded for now)
 - parallel multi-threaded DFA matching added (chunk mappings computed with std::thread)
-- benchmarks are not implemented yet
+- baseline benchmark scripts added for input generation, timing, and CSV summaries
+- optimized parallel versions and final benchmark comparison are not implemented yet
 
-The next step is to add small benchmark inputs and compare sequential and parallel timings.
+The next step is to add the two planned optimizations, then run the final benchmark comparison.
 
 ## References
 
