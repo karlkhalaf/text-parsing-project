@@ -337,6 +337,7 @@ Current repository status:
 - parallel multi-threaded DFA matching added (chunk mappings computed with std::thread)
 - baseline benchmark scripts added for input generation, timing, and CSV summaries
 - optimized parallel versions and final benchmark comparison are not implemented yet
+- PaREM-inspired candidate filtering added for a first pruned chunk-mapping version
 
 The next step is to add the two planned optimizations, then run the final benchmark comparison.
 

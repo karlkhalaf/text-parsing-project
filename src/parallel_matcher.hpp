@@ -20,4 +20,19 @@ bool parallel_accepts(const Dfa& dfa, std::string_view text, std::size_t chunk_c
 // Same algorithm as parallel_accepts, but each chunk mapping runs on its own thread.
 bool parallel_accepts_threads(const Dfa& dfa, std::string_view text, std::size_t thread_count);
 
+ChunkMapping simulate_chunk_for_states(
+    const Dfa& dfa,
+    std::string_view chunk,
+    const std::vector<std::size_t>& start_states
+);
+
+std::vector<std::size_t> candidate_states_for_chunk(
+    const Dfa& dfa,
+    std::string_view previous_chunk,
+    std::string_view chunk,
+    bool is_first_chunk
+);
+
+bool parallel_accepts_pruned(const Dfa& dfa, std::string_view text, std::size_t chunk_count);
+
 #endif
