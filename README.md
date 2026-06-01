@@ -302,6 +302,7 @@ The command-line interface currently supports sequential and parallel full-text 
 ```bash
 ./regex_matcher --regex "(a|b)*" --text "abba" --mode sequential
 ./regex_matcher --regex "(a|b)*" --text "abba" --mode parallel --threads 4
+./regex_matcher --regex "(a|b)*" --text "abba" --mode pruned --threads 4
 ```
 
 The benchmark scripts are a first baseline for the current implementation. They generate small input files, run the sequential and current parallel matcher, and prepare a CSV summary:
@@ -338,6 +339,7 @@ Current repository status:
 - baseline benchmark scripts added for input generation, timing, and CSV summaries
 - optimized parallel versions and final benchmark comparison are not implemented yet
 - PaREM-inspired candidate filtering added for a first pruned chunk-mapping version
+- pruned parallel mode exposed in the CLI and benchmark runner
 
 The next step is to add the two planned optimizations, then run the final benchmark comparison.
 

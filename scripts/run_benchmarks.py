@@ -47,6 +47,7 @@ def main() -> int:
     parser.add_argument("--output", default="results/benchmark_baseline.csv")
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--threads", default="1,2,3,4")
+    parser.add_argument("--modes", default="sequential,parallel,pruned")
     args = parser.parse_args()
 
     executable = Path(args.exe)
@@ -54,6 +55,7 @@ def main() -> int:
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     thread_counts = [int(value) for value in args.threads.split(",") if value.strip()]
+    modes = [value.strip() for value in args.modes.split(",") if value.strip()]
 
     rows = []
     for case_name, pattern, file_prefix in CASES:
@@ -62,34 +64,23 @@ def main() -> int:
             text = input_path.read_text(encoding="utf-8")
 
             for repeat in range(args.repeats):
-                elapsed, result = run_once(executable, pattern, text, "sequential", 1)
-                rows.append({
-                    "case": case_name,
-                    "pattern": pattern,
-                    "input": str(input_path),
-                    "size_label": size_label,
-                    "text_size": len(text),
-                    "mode": "sequential",
-                    "threads": 1,
-                    "repeat": repeat,
-                    "runtime_seconds": f"{elapsed:.8f}",
-                    "result": result,
-                })
+                for mode in modes:
+                    mode_threads = [1] if mode == "sequential" else thread_counts
 
-                for threads in thread_counts:
-                    elapsed, result = run_once(executable, pattern, text, "parallel", threads)
-                    rows.append({
-                        "case": case_name,
-                        "pattern": pattern,
-                        "input": str(input_path),
-                        "size_label": size_label,
-                        "text_size": len(text),
-                        "mode": "parallel",
-                        "threads": threads,
-                        "repeat": repeat,
-                        "runtime_seconds": f"{elapsed:.8f}",
-                        "result": result,
-                    })
+                    for threads in mode_threads:
+                        elapsed, result = run_once(executable, pattern, text, mode, threads)
+                        rows.append({
+                            "case": case_name,
+                            "pattern": pattern,
+                            "input": str(input_path),
+                            "size_label": size_label,
+                            "text_size": len(text),
+                            "mode": mode,
+                            "threads": threads,
+                            "repeat": repeat,
+                            "runtime_seconds": f"{elapsed:.8f}",
+                            "result": result,
+                        })
 
     with output_path.open("w", newline="", encoding="utf-8") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=list(rows[0].keys()))

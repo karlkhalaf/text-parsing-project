@@ -35,4 +35,10 @@ std::vector<std::size_t> candidate_states_for_chunk(
 
 bool parallel_accepts_pruned(const Dfa& dfa, std::string_view text, std::size_t chunk_count);
 
+bool parallel_accepts_pruned_threads(
+    const Dfa& dfa,
+    std::string_view text,
+    std::size_t thread_count
+);
+
 #endif
