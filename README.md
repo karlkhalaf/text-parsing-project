@@ -125,7 +125,7 @@ Then the reduction combines both the ending state and the count. This is planned
 
 The implementation should avoid unnecessary locks. Each thread can write into its own mapping vector, and the reduction phase can be implemented separately.
 
-## Planned PaREM-Inspired Optimization
+## PaREM-Inspired Pruned Version
 
 The full Holub-style algorithm tries every DFA state as a possible starting state for each chunk. PaREM improves this by trying to reduce the set of possible initial states for a chunk.
 
@@ -142,7 +142,7 @@ R = S intersect L
 
 This can reduce the amount of speculative work, especially when the transition table is sparse.
 
-For our project, this is an optimization milestone. We should first implement and validate the full Holub-style enumeration. Only after that will we add a PaREM-inspired pruning version and compare it in the benchmarks.
+For our project, we added a first PaREM-inspired pruning version after the full Holub-style enumeration was working. It is not meant to be a full implementation of the PaREM paper, but it follows the same idea: reduce the set of candidate states when possible, while falling back to the full state set when pruning would be unsafe. This gives us a second parallel mode to compare in the benchmarks.
 
 ## Possible SFA Extension
 
@@ -205,7 +205,7 @@ We plan to benchmark the following dimensions:
 | Thread count | 1, 2, 4, 8, 16 if available |
 | Regex complexity | simple literal, medium regex, larger DFA |
 | Text type | random text, English text, log-like text, DNA-like text |
-| Algorithm | sequential, parallel_full, later parallel_parem if implemented |
+| Algorithm | sequential, parallel_full, parallel_pruned, later precomputed if implemented |
 
 The main metrics will be:
 
@@ -297,7 +297,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The command-line interface currently supports sequential and parallel full-text matching:
+The command-line interface currently supports sequential, full parallel, and pruned parallel full-text matching:
 
 ```bash
 ./regex_matcher --regex "(a|b)*" --text "abba" --mode sequential
@@ -305,7 +305,7 @@ The command-line interface currently supports sequential and parallel full-text 
 ./regex_matcher --regex "(a|b)*" --text "abba" --mode pruned --threads 4
 ```
 
-The benchmark scripts are a first baseline for the current implementation. They generate small input files, run the sequential and current parallel matcher, and prepare a CSV summary:
+The benchmark scripts are a first baseline for the current implementation. They generate small input files, run the sequential, full parallel, and pruned parallel matchers, and prepare a CSV summary:
 
 ```bash
 python3 scripts/generate_inputs.py
@@ -313,7 +313,7 @@ python3 scripts/run_benchmarks.py --exe build/regex_matcher
 python3 scripts/plot_results.py
 ```
 
-Generated input files and result files are ignored by Git. We will use the same scripts as a starting point for the final comparison with the optimized versions.
+Generated input files and result files are ignored by Git. We will use the same scripts as a starting point for the final benchmark comparison.
 
 ## Current Status
 
@@ -336,12 +336,12 @@ Current repository status:
 - end-to-end sequential tests added
 - parallel DFA chunk simulation and mapping composition added (Holub-style, single-threaded for now)
 - parallel multi-threaded DFA matching added (chunk mappings computed with std::thread)
-- baseline benchmark scripts added for input generation, timing, and CSV summaries
-- optimized parallel versions and final benchmark comparison are not implemented yet
 - PaREM-inspired candidate filtering added for a first pruned chunk-mapping version
 - pruned parallel mode exposed in the CLI and benchmark runner
+- baseline benchmark scripts added for input generation, timing, CSV summaries, and plots
+- final benchmark comparison and report plots are not completed yet
 
-The next step is to add the two planned optimizations, then run the final benchmark comparison.
+The next step is to run the final benchmark comparison. If time allows, we may also add a small precomputation-inspired version before the final report, but the main implemented algorithms are now the sequential baseline, the full parallel matcher, and the pruned parallel matcher.
 
 ## References
 
