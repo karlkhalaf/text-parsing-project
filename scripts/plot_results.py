@@ -62,21 +62,34 @@ def try_plot(summary: list[dict[str, str]], output_dir: Path) -> None:
         return
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    parallel_rows = [row for row in summary if row["mode"] == "parallel"]
+    comparison_rows = [row for row in summary if row["mode"] != "sequential"]
+    if not comparison_rows:
+        print("no non-sequential benchmark rows to plot")
+        return
 
-    for case in sorted({row["case"] for row in parallel_rows}):
-        rows = [row for row in parallel_rows if row["case"] == case]
-        labels = [f"{row['size_label']}/{row['threads']}" for row in rows]
-        speedups = [float(row["speedup_vs_sequential"]) for row in rows]
+    for case in sorted({row["case"] for row in comparison_rows}):
+        case_rows = [row for row in comparison_rows if row["case"] == case]
 
-        plt.figure(figsize=(9, 4))
-        plt.bar(labels, speedups)
-        plt.ylabel("speedup vs sequential")
-        plt.title(f"Baseline parallel speedup, {case}")
-        plt.xticks(rotation=45, ha="right")
-        plt.tight_layout()
-        plt.savefig(output_dir / f"speedup_{case}.png")
-        plt.close()
+        for size_label in sorted({row["size_label"] for row in case_rows}):
+            rows = [row for row in case_rows if row["size_label"] == size_label]
+
+            plt.figure(figsize=(7, 4))
+            for mode in sorted({row["mode"] for row in rows}):
+                mode_rows = sorted(
+                    [row for row in rows if row["mode"] == mode],
+                    key=lambda row: int(row["threads"]),
+                )
+                threads = [int(row["threads"]) for row in mode_rows]
+                speedups = [float(row["speedup_vs_sequential"]) for row in mode_rows]
+                plt.plot(threads, speedups, marker="o", label=mode)
+
+            plt.xlabel("threads")
+            plt.ylabel("speedup vs sequential")
+            plt.title(f"Speedup comparison, {case}, {size_label}")
+            plt.legend()
+            plt.tight_layout()
+            plt.savefig(output_dir / f"speedup_{case}_{size_label}.png")
+            plt.close()
 
     print(f"wrote plots to {output_dir}")
 
