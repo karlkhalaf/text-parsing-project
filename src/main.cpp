@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
             threads = static_cast<std::size_t>(std::stoul(argv[++i]));
         } else if (arg == "--help") {
             std::cout << "Usage: regex_matcher --regex PATTERN --text TEXT "
-                         "[--mode sequential|parallel|pruned] [--threads N]\n";
+                         "[--mode sequential|parallel|pruned|precomputed] [--threads N]\n";
             return 0;
         }
     }
@@ -42,8 +42,10 @@ int main(int argc, char** argv) {
             ok = parallel_accepts_threads(dfa, text, threads);
         } else if (mode == "pruned") {
             ok = parallel_accepts_pruned_threads(dfa, text, threads);
+        } else if (mode == "precomputed") {
+            ok = parallel_accepts_precomputed_threads(dfa, text, threads);
         } else {
-            std::cerr << "Unknown --mode (use sequential, parallel, or pruned)\n";
+            std::cerr << "Unknown --mode (use sequential, parallel, pruned, or precomputed)\n";
             return 1;
         }
         std::cout << (ok ? "ACCEPT\n" : "REJECT\n");

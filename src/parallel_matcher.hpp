@@ -56,4 +56,10 @@ ChunkMapping simulate_chunk_precomputed(
 
 bool parallel_accepts_precomputed(const Dfa& dfa, std::string_view text, std::size_t chunk_count);
 
+bool parallel_accepts_precomputed_threads(
+    const Dfa& dfa,
+    std::string_view text,
+    std::size_t thread_count
+);
+
 #endif

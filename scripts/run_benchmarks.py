@@ -47,7 +47,7 @@ def main() -> int:
     parser.add_argument("--output", default="results/benchmark_baseline.csv")
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--threads", default="1,2,3,4")
-    parser.add_argument("--modes", default="sequential,parallel,pruned")
+    parser.add_argument("--modes", default="sequential,parallel,pruned,precomputed")
     args = parser.parse_args()
 
     executable = Path(args.exe)
