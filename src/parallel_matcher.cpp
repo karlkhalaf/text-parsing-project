@@ -196,6 +196,81 @@ bool parallel_accepts(const Dfa& dfa, std::string_view text, std::size_t chunk_c
     return dfa.is_final(end_state);
 }
 
+PrecomputedDfa precompute_dfa_mappings(const Dfa& dfa) {
+    PrecomputedDfa precomputed{
+        dfa.initial_state(),
+        std::vector<bool>(dfa.state_count(), false),
+        std::vector<ChunkMapping>(256, ChunkMapping(dfa.state_count(), INVALID_STATE))
+    };
+
+    for (std::size_t state = 0; state < dfa.state_count(); ++state) {
+        precomputed.final_states[state] = dfa.is_final(state);
+    }
+
+    for (std::size_t symbol = 0; symbol < precomputed.symbol_mappings.size(); ++symbol) {
+        for (std::size_t state = 0; state < dfa.state_count(); ++state) {
+            const std::optional<std::size_t> next =
+                dfa.next_state(state, static_cast<char>(symbol));
+            if (next.has_value()) {
+                precomputed.symbol_mappings[symbol][state] = *next;
+            }
+        }
+    }
+
+    return precomputed;
+}
+
+ChunkMapping simulate_chunk_precomputed(
+    const PrecomputedDfa& precomputed,
+    std::string_view chunk
+) {
+    ChunkMapping mapping(precomputed.final_states.size(), INVALID_STATE);
+
+    for (std::size_t start = 0; start < mapping.size(); ++start) {
+        mapping[start] = start;
+    }
+
+    for (unsigned char symbol : chunk) {
+        const ChunkMapping& symbol_mapping = precomputed.symbol_mappings[symbol];
+
+        for (std::size_t start = 0; start < mapping.size(); ++start) {
+            const std::size_t current = mapping[start];
+            if (current == INVALID_STATE) {
+                continue;
+            }
+            mapping[start] = symbol_mapping[current];
+        }
+    }
+
+    return mapping;
+}
+
+bool parallel_accepts_precomputed(const Dfa& dfa, std::string_view text, std::size_t chunk_count) {
+    if (chunk_count == 0) {
+        return false;
+    }
+    if (chunk_count == 1) {
+        return dfa.accepts(text);
+    }
+
+    const PrecomputedDfa precomputed = precompute_dfa_mappings(dfa);
+    const std::vector<std::string_view> chunks = split_text(text, chunk_count);
+    if (chunks.empty()) {
+        return precomputed.final_states[precomputed.initial_state];
+    }
+
+    ChunkMapping total = simulate_chunk_precomputed(precomputed, chunks[0]);
+    for (std::size_t i = 1; i < chunks.size(); ++i) {
+        total = compose_mappings(total, simulate_chunk_precomputed(precomputed, chunks[i]));
+    }
+
+    const std::size_t end_state = total[precomputed.initial_state];
+    if (end_state == INVALID_STATE) {
+        return false;
+    }
+    return precomputed.final_states[end_state];
+}
+
 bool parallel_accepts_pruned(const Dfa& dfa, std::string_view text, std::size_t chunk_count) {
     if (chunk_count == 0) {
         return false;

@@ -11,6 +11,12 @@ constexpr std::size_t INVALID_STATE = static_cast<std::size_t>(-1);
 
 using ChunkMapping = std::vector<std::size_t>;
 
+struct PrecomputedDfa {
+    std::size_t initial_state;
+    std::vector<bool> final_states;
+    std::vector<ChunkMapping> symbol_mappings;
+};
+
 ChunkMapping simulate_chunk(const Dfa& dfa, std::string_view chunk);
 
 ChunkMapping compose_mappings(const ChunkMapping& left, const ChunkMapping& right);
@@ -40,5 +46,14 @@ bool parallel_accepts_pruned_threads(
     std::string_view text,
     std::size_t thread_count
 );
+
+PrecomputedDfa precompute_dfa_mappings(const Dfa& dfa);
+
+ChunkMapping simulate_chunk_precomputed(
+    const PrecomputedDfa& precomputed,
+    std::string_view chunk
+);
+
+bool parallel_accepts_precomputed(const Dfa& dfa, std::string_view text, std::size_t chunk_count);
 
 #endif
