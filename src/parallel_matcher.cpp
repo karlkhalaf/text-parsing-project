@@ -28,16 +28,32 @@ std::vector<std::string_view> split_text(std::string_view text, std::size_t chun
     return chunks;
 }
 
-    std::vector<std::size_t> all_states(const Dfa& dfa) {
-        std::vector<std::size_t> states;
-        states.reserve(dfa.state_count());
+std::vector<std::size_t> all_states(const Dfa& dfa) {
+    std::vector<std::size_t> states;
+    states.reserve(dfa.state_count());
 
-        for (std::size_t state = 0; state < dfa.state_count(); ++state) {
-            states.push_back(state);
-        }
-
-        return states;
+    for (std::size_t state = 0; state < dfa.state_count(); ++state) {
+        states.push_back(state);
     }
+
+    return states;
+}
+
+std::size_t apply_mappings_to_state(
+    const std::vector<ChunkMapping>& mappings,
+    std::size_t initial_state
+) {
+    std::size_t current = initial_state;
+
+    for (const ChunkMapping& mapping : mappings) {
+        if (current >= mapping.size() || mapping[current] == INVALID_STATE) {
+            return INVALID_STATE;
+        }
+        current = mapping[current];
+    }
+
+    return current;
+}
 
 }  // namespace
 
@@ -184,12 +200,13 @@ bool parallel_accepts(const Dfa& dfa, std::string_view text, std::size_t chunk_c
         return dfa.is_final(dfa.initial_state());
     }
 
-    ChunkMapping total = simulate_chunk(dfa, chunks[0]);
-    for (std::size_t i = 1; i < chunks.size(); ++i) {
-        total = compose_mappings(total, simulate_chunk(dfa, chunks[i]));
+    std::vector<ChunkMapping> mappings;
+    mappings.reserve(chunks.size());
+    for (std::string_view chunk : chunks) {
+        mappings.push_back(simulate_chunk(dfa, chunk));
     }
 
-    const std::size_t end_state = total[dfa.initial_state()];
+    const std::size_t end_state = apply_mappings_to_state(mappings, dfa.initial_state());
     if (end_state == INVALID_STATE) {
         return false;
     }
@@ -259,12 +276,13 @@ bool parallel_accepts_precomputed(const Dfa& dfa, std::string_view text, std::si
         return precomputed.final_states[precomputed.initial_state];
     }
 
-    ChunkMapping total = simulate_chunk_precomputed(precomputed, chunks[0]);
-    for (std::size_t i = 1; i < chunks.size(); ++i) {
-        total = compose_mappings(total, simulate_chunk_precomputed(precomputed, chunks[i]));
+    std::vector<ChunkMapping> mappings;
+    mappings.reserve(chunks.size());
+    for (std::string_view chunk : chunks) {
+        mappings.push_back(simulate_chunk_precomputed(precomputed, chunk));
     }
 
-    const std::size_t end_state = total[precomputed.initial_state];
+    const std::size_t end_state = apply_mappings_to_state(mappings, precomputed.initial_state);
     if (end_state == INVALID_STATE) {
         return false;
     }
@@ -284,20 +302,22 @@ bool parallel_accepts_pruned(const Dfa& dfa, std::string_view text, std::size_t 
         return dfa.is_final(dfa.initial_state());
     }
 
-    ChunkMapping total = simulate_chunk_for_states(
+    std::vector<ChunkMapping> mappings;
+    mappings.reserve(chunks.size());
+    mappings.push_back(simulate_chunk_for_states(
         dfa,
         chunks[0],
         candidate_states_for_chunk(dfa, "", chunks[0], true)
-    );
+    ));
 
     for (std::size_t i = 1; i < chunks.size(); ++i) {
         const std::vector<std::size_t> candidates =
             candidate_states_for_chunk(dfa, chunks[i - 1], chunks[i], false);
 
-        total = compose_mappings(total, simulate_chunk_for_states(dfa, chunks[i], candidates));
+        mappings.push_back(simulate_chunk_for_states(dfa, chunks[i], candidates));
     }
 
-    const std::size_t end_state = total[dfa.initial_state()];
+    const std::size_t end_state = apply_mappings_to_state(mappings, dfa.initial_state());
     if (end_state == INVALID_STATE) {
         return false;
     }
@@ -332,12 +352,7 @@ bool parallel_accepts_threads(const Dfa& dfa, std::string_view text, std::size_t
         worker.join();
     }
 
-    ChunkMapping total = mappings[0];
-    for (std::size_t i = 1; i < mappings.size(); ++i) {
-        total = compose_mappings(total, mappings[i]);
-    }
-
-    const std::size_t end_state = total[dfa.initial_state()];
+    const std::size_t end_state = apply_mappings_to_state(mappings, dfa.initial_state());
     if (end_state == INVALID_STATE) {
         return false;
     }
@@ -381,12 +396,7 @@ bool parallel_accepts_pruned_threads(
         worker.join();
     }
 
-    ChunkMapping total = mappings[0];
-    for (std::size_t i = 1; i < mappings.size(); ++i) {
-        total = compose_mappings(total, mappings[i]);
-    }
-
-    const std::size_t end_state = total[dfa.initial_state()];
+    const std::size_t end_state = apply_mappings_to_state(mappings, dfa.initial_state());
     if (end_state == INVALID_STATE) {
         return false;
     }
@@ -425,12 +435,7 @@ bool parallel_accepts_precomputed_threads(
         worker.join();
     }
 
-    ChunkMapping total = mappings[0];
-    for (std::size_t i = 1; i < mappings.size(); ++i) {
-        total = compose_mappings(total, mappings[i]);
-    }
-
-    const std::size_t end_state = total[precomputed.initial_state];
+    const std::size_t end_state = apply_mappings_to_state(mappings, precomputed.initial_state);
     if (end_state == INVALID_STATE) {
         return false;
     }

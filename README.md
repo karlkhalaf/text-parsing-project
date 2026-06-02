@@ -72,6 +72,17 @@ f_total = fp-1 o ... o f1 o f0
 
 where `o` means function composition. Since function composition is associative, the mappings can be combined by a reduction. This is the central algorithmic idea of the project.
 
+In the CPU implementation, we do not need to materialize the full composed mapping for the final acceptance result. After all chunk mappings are computed, we can start from the DFA initial state and apply the mappings one after another:
+
+```text
+state = initial_state
+state = f0[state]
+state = f1[state]
+...
+```
+
+This gives the same final state for full-text matching and avoids composing full mappings when only the initial DFA state is needed.
+
 The important complexity intuition is:
 
 ```text
@@ -109,7 +120,7 @@ The first parallel version will follow Holub and Stekr's general DFA method for 
 1. Split the input text into `p` chunks.
 2. In each thread, compute the effect of the local chunk from every possible DFA state.
 3. Store one mapping per chunk.
-4. Compose the mappings to obtain the final DFA state.
+4. Apply the mappings in chunk order starting from the DFA initial state.
 5. Compare the result with the sequential baseline.
 
 For simple acceptance of the full text, each mapping only needs to store the ending state for each possible starting state.
@@ -123,7 +134,7 @@ number_of_final_states_reached
 
 Then the reduction combines both the ending state and the count. This is planned after the basic acceptance/matching version is correct.
 
-The implementation should avoid unnecessary locks. Each thread can write into its own mapping vector, and the reduction phase can be implemented separately.
+The implementation should avoid unnecessary locks. Each thread can write into its own mapping vector, and the final reconstruction is done after all threads have joined. The theoretical description uses function composition, but the CPU version only follows the state reached from the real initial state.
 
 ## PaREM-Inspired Pruned Version
 
@@ -166,7 +177,7 @@ For this project, we added a smaller precomputed version rather than a full SFA 
 
 - Implement text splitting into chunks.
 - For each chunk, compute `start_state -> end_state` for all states.
-- Compose mappings in the correct order.
+- Apply mappings in the correct order from the initial state.
 - Validate parallel output against the sequential baseline.
 - Start with a simple reduction, then improve it if needed.
 
@@ -335,7 +346,7 @@ Current repository status:
 - subset construction converts NFA to DFA for the supported regex subset
 - end-to-end sequential matcher added: regex -> NFA -> DFA -> accepts(text)
 - end-to-end sequential tests added
-- parallel DFA chunk simulation and mapping composition added (Holub-style, single-threaded for now)
+- parallel DFA chunk simulation added, with final state reconstruction from the initial DFA state
 - parallel multi-threaded DFA matching added (chunk mappings computed with std::thread)
 - PaREM-inspired candidate filtering added for a first pruned chunk-mapping version
 - pruned parallel mode exposed in the CLI and benchmark runner
