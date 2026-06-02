@@ -2,12 +2,15 @@
 #include "parallel_matcher.hpp"
 
 #include <exception>
+#include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 
 int main(int argc, char** argv) {
     std::string pattern;
     std::string text;
+    std::string input_path;
     std::string mode = "sequential";
     std::size_t threads = 4;
 
@@ -17,12 +20,14 @@ int main(int argc, char** argv) {
             pattern = argv[++i];
         } else if (arg == "--text" && i + 1 < argc) {
             text = argv[++i];
+        } else if (arg == "--input" && i + 1 < argc) {
+            input_path = argv[++i];
         } else if (arg == "--mode" && i + 1 < argc) {
             mode = argv[++i];
         } else if (arg == "--threads" && i + 1 < argc) {
             threads = static_cast<std::size_t>(std::stoul(argv[++i]));
         } else if (arg == "--help") {
-            std::cout << "Usage: regex_matcher --regex PATTERN --text TEXT "
+            std::cout << "Usage: regex_matcher --regex PATTERN (--text TEXT | --input FILE) "
                          "[--mode sequential|parallel|pruned|precomputed] [--threads N]\n";
             return 0;
         }
@@ -30,6 +35,22 @@ int main(int argc, char** argv) {
 
     if (pattern.empty()) {
         std::cerr << "Missing --regex\n";
+        return 1;
+    }
+
+    if (text.empty() && !input_path.empty()) {
+        std::ifstream input_file(input_path);
+        if (!input_file) {
+            std::cerr << "Could not open --input file\n";
+            return 1;
+        }
+        std::ostringstream buffer;
+        buffer << input_file.rdbuf();
+        text = buffer.str();
+    }
+
+    if (text.empty()) {
+        std::cerr << "Missing --text or --input\n";
         return 1;
     }
 

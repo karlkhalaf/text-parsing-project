@@ -9,6 +9,7 @@ DEFAULT_SIZES = {
     "small": 1_000,
     "medium": 10_000,
     "large": 50_000,
+    "xlarge": 500_000,
 }
 
 

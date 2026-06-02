@@ -13,16 +13,16 @@ CASES = [
     ("abc_star", "(a|b|c)*", "abc_random"),
 ]
 
-SIZES = ["small", "medium", "large"]
+SIZES = ["small", "medium", "large", "xlarge"]
 
 
-def run_once(executable: Path, pattern: str, text: str, mode: str, threads: int) -> tuple[float, str]:
+def run_once(executable: Path, pattern: str, input_path: Path, mode: str, threads: int) -> tuple[float, str]:
     command = [
         str(executable),
         "--regex",
         pattern,
-        "--text",
-        text,
+        "--input",
+        str(input_path),
         "--mode",
         mode,
         "--threads",
@@ -61,20 +61,20 @@ def main() -> int:
     for case_name, pattern, file_prefix in CASES:
         for size_label in SIZES:
             input_path = input_dir / f"{file_prefix}_{size_label}.txt"
-            text = input_path.read_text(encoding="utf-8")
+            text_size = input_path.stat().st_size
 
             for repeat in range(args.repeats):
                 for mode in modes:
                     mode_threads = [1] if mode == "sequential" else thread_counts
 
                     for threads in mode_threads:
-                        elapsed, result = run_once(executable, pattern, text, mode, threads)
+                        elapsed, result = run_once(executable, pattern, input_path, mode, threads)
                         rows.append({
                             "case": case_name,
                             "pattern": pattern,
                             "input": str(input_path),
                             "size_label": size_label,
-                            "text_size": len(text),
+                            "text_size": text_size,
                             "mode": mode,
                             "threads": threads,
                             "repeat": repeat,
