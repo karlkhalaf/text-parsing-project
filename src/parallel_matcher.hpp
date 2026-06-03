@@ -1,6 +1,7 @@
 #ifndef PARALLEL_MATCHER_HPP
 #define PARALLEL_MATCHER_HPP
 
+#include "dense_dfa.hpp"
 #include "dfa.hpp"
 
 #include <cstddef>
@@ -12,9 +13,7 @@ constexpr std::size_t INVALID_STATE = static_cast<std::size_t>(-1);
 using ChunkMapping = std::vector<std::size_t>;
 
 struct PrecomputedDfa {
-    std::size_t initial_state;
-    std::vector<bool> final_states;
-    std::vector<ChunkMapping> symbol_mappings;
+    DenseDfa dense;
 };
 
 ChunkMapping simulate_chunk(const Dfa& dfa, std::string_view chunk);

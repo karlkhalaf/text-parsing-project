@@ -1,6 +1,5 @@
 #include "parallel_matcher.hpp"
 
-#include <optional>
 #include <thread>
 #include <vector>
 
@@ -28,7 +27,7 @@ std::vector<std::string_view> split_text(std::string_view text, std::size_t chun
     return chunks;
 }
 
-std::vector<std::size_t> all_states(const Dfa& dfa) {
+std::vector<std::size_t> all_states(const DenseDfa& dfa) {
     std::vector<std::size_t> states;
     states.reserve(dfa.state_count());
 
@@ -55,9 +54,7 @@ std::size_t apply_mappings_to_state(
     return current;
 }
 
-}  // namespace
-
-ChunkMapping simulate_chunk(const Dfa& dfa, std::string_view chunk) {
+ChunkMapping simulate_chunk_dense(const DenseDfa& dfa, std::string_view chunk) {
     ChunkMapping mapping(dfa.state_count(), INVALID_STATE);
 
     for (std::size_t start = 0; start < dfa.state_count(); ++start) {
@@ -65,12 +62,12 @@ ChunkMapping simulate_chunk(const Dfa& dfa, std::string_view chunk) {
         bool ok = true;
 
         for (char symbol : chunk) {
-            const std::optional<std::size_t> next = dfa.next_state(current, symbol);
-            if (!next.has_value()) {
+            const std::size_t next = dfa.next_state(current, symbol);
+            if (next == DenseDfa::invalid_state) {
                 ok = false;
                 break;
             }
-            current = *next;
+            current = next;
         }
 
         if (ok) {
@@ -81,8 +78,8 @@ ChunkMapping simulate_chunk(const Dfa& dfa, std::string_view chunk) {
     return mapping;
 }
 
-ChunkMapping simulate_chunk_for_states(
-    const Dfa& dfa,
+ChunkMapping simulate_chunk_for_states_dense(
+    const DenseDfa& dfa,
     std::string_view chunk,
     const std::vector<std::size_t>& start_states
 ) {
@@ -97,12 +94,12 @@ ChunkMapping simulate_chunk_for_states(
         bool ok = true;
 
         for (char symbol : chunk) {
-            const std::optional<std::size_t> next = dfa.next_state(current, symbol);
-            if (!next.has_value()) {
+            const std::size_t next = dfa.next_state(current, symbol);
+            if (next == DenseDfa::invalid_state) {
                 ok = false;
                 break;
             }
-            current = *next;
+            current = next;
         }
 
         if (ok) {
@@ -113,8 +110,8 @@ ChunkMapping simulate_chunk_for_states(
     return mapping;
 }
 
-std::vector<std::size_t> candidate_states_for_chunk(
-    const Dfa& dfa,
+std::vector<std::size_t> candidate_states_for_chunk_dense(
+    const DenseDfa& dfa,
     std::string_view previous_chunk,
     std::string_view chunk,
     bool is_first_chunk
@@ -138,12 +135,12 @@ std::vector<std::size_t> candidate_states_for_chunk(
     std::vector<std::size_t> can_read_current;
 
     for (std::size_t state = 0; state < dfa.state_count(); ++state) {
-        const std::optional<std::size_t> after_previous = dfa.next_state(state, previous_last);
-        if (after_previous.has_value()) {
-            reached_after_previous.push_back(*after_previous);
+        const std::size_t after_previous = dfa.next_state(state, previous_last);
+        if (after_previous != DenseDfa::invalid_state) {
+            reached_after_previous.push_back(after_previous);
         }
 
-        if (dfa.next_state(state, current_first).has_value()) {
+        if (dfa.next_state(state, current_first) != DenseDfa::invalid_state) {
             can_read_current.push_back(state);
         }
     }
@@ -168,6 +165,32 @@ std::vector<std::size_t> candidate_states_for_chunk(
     }
 
     return candidates;
+}
+
+}  // namespace
+
+ChunkMapping simulate_chunk(const Dfa& dfa, std::string_view chunk) {
+    const DenseDfa dense(dfa);
+    return simulate_chunk_dense(dense, chunk);
+}
+
+ChunkMapping simulate_chunk_for_states(
+    const Dfa& dfa,
+    std::string_view chunk,
+    const std::vector<std::size_t>& start_states
+) {
+    const DenseDfa dense(dfa);
+    return simulate_chunk_for_states_dense(dense, chunk, start_states);
+}
+
+std::vector<std::size_t> candidate_states_for_chunk(
+    const Dfa& dfa,
+    std::string_view previous_chunk,
+    std::string_view chunk,
+    bool is_first_chunk
+) {
+    const DenseDfa dense(dfa);
+    return candidate_states_for_chunk_dense(dense, previous_chunk, chunk, is_first_chunk);
 }
 
 ChunkMapping compose_mappings(const ChunkMapping& left, const ChunkMapping& right) {
@@ -195,67 +218,46 @@ bool parallel_accepts(const Dfa& dfa, std::string_view text, std::size_t chunk_c
         return dfa.accepts(text);
     }
 
+    const DenseDfa dense(dfa);
     const std::vector<std::string_view> chunks = split_text(text, chunk_count);
     if (chunks.empty()) {
-        return dfa.is_final(dfa.initial_state());
+        return dense.is_final(dense.initial_state());
     }
 
     std::vector<ChunkMapping> mappings;
     mappings.reserve(chunks.size());
     for (std::string_view chunk : chunks) {
-        mappings.push_back(simulate_chunk(dfa, chunk));
+        mappings.push_back(simulate_chunk_dense(dense, chunk));
     }
 
-    const std::size_t end_state = apply_mappings_to_state(mappings, dfa.initial_state());
+    const std::size_t end_state = apply_mappings_to_state(mappings, dense.initial_state());
     if (end_state == INVALID_STATE) {
         return false;
     }
-    return dfa.is_final(end_state);
+    return dense.is_final(end_state);
 }
 
 PrecomputedDfa precompute_dfa_mappings(const Dfa& dfa) {
-    PrecomputedDfa precomputed{
-        dfa.initial_state(),
-        std::vector<bool>(dfa.state_count(), false),
-        std::vector<ChunkMapping>(256, ChunkMapping(dfa.state_count(), INVALID_STATE))
-    };
-
-    for (std::size_t state = 0; state < dfa.state_count(); ++state) {
-        precomputed.final_states[state] = dfa.is_final(state);
-    }
-
-    for (std::size_t symbol = 0; symbol < precomputed.symbol_mappings.size(); ++symbol) {
-        for (std::size_t state = 0; state < dfa.state_count(); ++state) {
-            const std::optional<std::size_t> next =
-                dfa.next_state(state, static_cast<char>(symbol));
-            if (next.has_value()) {
-                precomputed.symbol_mappings[symbol][state] = *next;
-            }
-        }
-    }
-
-    return precomputed;
+    return {DenseDfa(dfa)};
 }
 
 ChunkMapping simulate_chunk_precomputed(
     const PrecomputedDfa& precomputed,
     std::string_view chunk
 ) {
-    ChunkMapping mapping(precomputed.final_states.size(), INVALID_STATE);
+    ChunkMapping mapping(precomputed.dense.state_count(), INVALID_STATE);
 
     for (std::size_t start = 0; start < mapping.size(); ++start) {
         mapping[start] = start;
     }
 
-    for (unsigned char symbol : chunk) {
-        const ChunkMapping& symbol_mapping = precomputed.symbol_mappings[symbol];
-
+    for (char symbol : chunk) {
         for (std::size_t start = 0; start < mapping.size(); ++start) {
             const std::size_t current = mapping[start];
             if (current == INVALID_STATE) {
                 continue;
             }
-            mapping[start] = symbol_mapping[current];
+            mapping[start] = precomputed.dense.next_state(current, symbol);
         }
     }
 
@@ -273,7 +275,7 @@ bool parallel_accepts_precomputed(const Dfa& dfa, std::string_view text, std::si
     const PrecomputedDfa precomputed = precompute_dfa_mappings(dfa);
     const std::vector<std::string_view> chunks = split_text(text, chunk_count);
     if (chunks.empty()) {
-        return precomputed.final_states[precomputed.initial_state];
+        return precomputed.dense.is_final(precomputed.dense.initial_state());
     }
 
     std::vector<ChunkMapping> mappings;
@@ -282,11 +284,12 @@ bool parallel_accepts_precomputed(const Dfa& dfa, std::string_view text, std::si
         mappings.push_back(simulate_chunk_precomputed(precomputed, chunk));
     }
 
-    const std::size_t end_state = apply_mappings_to_state(mappings, precomputed.initial_state);
+    const std::size_t end_state =
+        apply_mappings_to_state(mappings, precomputed.dense.initial_state());
     if (end_state == INVALID_STATE) {
         return false;
     }
-    return precomputed.final_states[end_state];
+    return precomputed.dense.is_final(end_state);
 }
 
 bool parallel_accepts_pruned(const Dfa& dfa, std::string_view text, std::size_t chunk_count) {
@@ -297,31 +300,32 @@ bool parallel_accepts_pruned(const Dfa& dfa, std::string_view text, std::size_t 
         return dfa.accepts(text);
     }
 
+    const DenseDfa dense(dfa);
     const std::vector<std::string_view> chunks = split_text(text, chunk_count);
     if (chunks.empty()) {
-        return dfa.is_final(dfa.initial_state());
+        return dense.is_final(dense.initial_state());
     }
 
     std::vector<ChunkMapping> mappings;
     mappings.reserve(chunks.size());
-    mappings.push_back(simulate_chunk_for_states(
-        dfa,
+    mappings.push_back(simulate_chunk_for_states_dense(
+        dense,
         chunks[0],
-        candidate_states_for_chunk(dfa, "", chunks[0], true)
+        candidate_states_for_chunk_dense(dense, "", chunks[0], true)
     ));
 
     for (std::size_t i = 1; i < chunks.size(); ++i) {
         const std::vector<std::size_t> candidates =
-            candidate_states_for_chunk(dfa, chunks[i - 1], chunks[i], false);
+            candidate_states_for_chunk_dense(dense, chunks[i - 1], chunks[i], false);
 
-        mappings.push_back(simulate_chunk_for_states(dfa, chunks[i], candidates));
+        mappings.push_back(simulate_chunk_for_states_dense(dense, chunks[i], candidates));
     }
 
-    const std::size_t end_state = apply_mappings_to_state(mappings, dfa.initial_state());
+    const std::size_t end_state = apply_mappings_to_state(mappings, dense.initial_state());
     if (end_state == INVALID_STATE) {
         return false;
     }
-    return dfa.is_final(end_state);
+    return dense.is_final(end_state);
 }
 
 
@@ -333,9 +337,10 @@ bool parallel_accepts_threads(const Dfa& dfa, std::string_view text, std::size_t
         return dfa.accepts(text);
     }
 
+    const DenseDfa dense(dfa);
     const std::vector<std::string_view> chunks = split_text(text, thread_count);
     if (chunks.empty()) {
-        return dfa.is_final(dfa.initial_state());
+        return dense.is_final(dense.initial_state());
     }
 
     std::vector<ChunkMapping> mappings(chunks.size());
@@ -343,8 +348,8 @@ bool parallel_accepts_threads(const Dfa& dfa, std::string_view text, std::size_t
     workers.reserve(chunks.size());
 
     for (std::size_t i = 0; i < chunks.size(); ++i) {
-        workers.emplace_back([&dfa, &chunks, &mappings, i]() {
-            mappings[i] = simulate_chunk(dfa, chunks[i]);
+        workers.emplace_back([&dense, &chunks, &mappings, i]() {
+            mappings[i] = simulate_chunk_dense(dense, chunks[i]);
         });
     }
 
@@ -352,11 +357,11 @@ bool parallel_accepts_threads(const Dfa& dfa, std::string_view text, std::size_t
         worker.join();
     }
 
-    const std::size_t end_state = apply_mappings_to_state(mappings, dfa.initial_state());
+    const std::size_t end_state = apply_mappings_to_state(mappings, dense.initial_state());
     if (end_state == INVALID_STATE) {
         return false;
     }
-    return dfa.is_final(end_state);
+    return dense.is_final(end_state);
 }
 
 bool parallel_accepts_pruned_threads(
@@ -371,9 +376,10 @@ bool parallel_accepts_pruned_threads(
         return dfa.accepts(text);
     }
 
+    const DenseDfa dense(dfa);
     const std::vector<std::string_view> chunks = split_text(text, thread_count);
     if (chunks.empty()) {
-        return dfa.is_final(dfa.initial_state());
+        return dense.is_final(dense.initial_state());
     }
 
     std::vector<ChunkMapping> mappings(chunks.size());
@@ -381,14 +387,15 @@ bool parallel_accepts_pruned_threads(
     workers.reserve(chunks.size());
 
     for (std::size_t i = 0; i < chunks.size(); ++i) {
-        workers.emplace_back([&dfa, &chunks, &mappings, i]() {
+        workers.emplace_back([&dense, &chunks, &mappings, i]() {
             const bool is_first_chunk = (i == 0);
-            const std::string_view previous_chunk = is_first_chunk ? std::string_view() : chunks[i - 1];
+            const std::string_view previous_chunk =
+                is_first_chunk ? std::string_view() : chunks[i - 1];
 
             const std::vector<std::size_t> candidates =
-                candidate_states_for_chunk(dfa, previous_chunk, chunks[i], is_first_chunk);
+                candidate_states_for_chunk_dense(dense, previous_chunk, chunks[i], is_first_chunk);
 
-            mappings[i] = simulate_chunk_for_states(dfa, chunks[i], candidates);
+            mappings[i] = simulate_chunk_for_states_dense(dense, chunks[i], candidates);
         });
     }
 
@@ -396,11 +403,11 @@ bool parallel_accepts_pruned_threads(
         worker.join();
     }
 
-    const std::size_t end_state = apply_mappings_to_state(mappings, dfa.initial_state());
+    const std::size_t end_state = apply_mappings_to_state(mappings, dense.initial_state());
     if (end_state == INVALID_STATE) {
         return false;
     }
-    return dfa.is_final(end_state);
+    return dense.is_final(end_state);
 }
 
 bool parallel_accepts_precomputed_threads(
@@ -418,7 +425,7 @@ bool parallel_accepts_precomputed_threads(
     const PrecomputedDfa precomputed = precompute_dfa_mappings(dfa);
     const std::vector<std::string_view> chunks = split_text(text, thread_count);
     if (chunks.empty()) {
-        return precomputed.final_states[precomputed.initial_state];
+        return precomputed.dense.is_final(precomputed.dense.initial_state());
     }
 
     std::vector<ChunkMapping> mappings(chunks.size());
@@ -435,9 +442,10 @@ bool parallel_accepts_precomputed_threads(
         worker.join();
     }
 
-    const std::size_t end_state = apply_mappings_to_state(mappings, precomputed.initial_state);
+    const std::size_t end_state =
+        apply_mappings_to_state(mappings, precomputed.dense.initial_state());
     if (end_state == INVALID_STATE) {
         return false;
     }
-    return precomputed.final_states[end_state];
+    return precomputed.dense.is_final(end_state);
 }
