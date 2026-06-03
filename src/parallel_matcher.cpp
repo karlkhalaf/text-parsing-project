@@ -56,25 +56,19 @@ std::size_t apply_mappings_to_state(
 
 ChunkMapping simulate_chunk_dense(const DenseDfa& dfa, std::string_view chunk) {
     ChunkMapping mapping(dfa.state_count(), INVALID_STATE);
-
-    for (std::size_t start = 0; start < dfa.state_count(); ++start) {
-        std::size_t current = start;
-        bool ok = true;
-
-        for (char symbol : chunk) {
-            const std::size_t next = dfa.next_state(current, symbol);
-            if (next == DenseDfa::invalid_state) {
-                ok = false;
-                break;
+    for (std::size_t start = 0; start < mapping.size(); ++start) {
+        mapping[start] = start;
+    }
+    for (char symbol : chunk) {
+        for (std::size_t start = 0; start < mapping.size(); ++start) {
+            const std::size_t current = mapping[start];
+            if (current == DenseDfa::invalid_state) {
+                continue;
             }
-            current = next;
-        }
-
-        if (ok) {
-            mapping[start] = current;
+            const std::size_t next = dfa.next_state(current, symbol);
+            mapping[start] = next;
         }
     }
-
     return mapping;
 }
 
@@ -84,29 +78,23 @@ ChunkMapping simulate_chunk_for_states_dense(
     const std::vector<std::size_t>& start_states
 ) {
     ChunkMapping mapping(dfa.state_count(), INVALID_STATE);
-
     for (std::size_t start : start_states) {
-        if (start >= dfa.state_count()) {
-            continue;
-        }
-
-        std::size_t current = start;
-        bool ok = true;
-
-        for (char symbol : chunk) {
-            const std::size_t next = dfa.next_state(current, symbol);
-            if (next == DenseDfa::invalid_state) {
-                ok = false;
-                break;
-            }
-            current = next;
-        }
-
-        if (ok) {
-            mapping[start] = current;
+        if (start < mapping.size()) {
+            mapping[start] = start;
         }
     }
-
+    for (char symbol : chunk) {
+        for (std::size_t start : start_states) {
+            if (start >= mapping.size()) {
+                continue;
+            }
+            const std::size_t current = mapping[start];
+            if (current == DenseDfa::invalid_state) {
+                continue;
+            }
+            mapping[start] = dfa.next_state(current, symbol);
+        }
+    }
     return mapping;
 }
 
