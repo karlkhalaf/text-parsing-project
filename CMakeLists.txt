@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_library(regex_core
     src/dense_dfa.cpp
+    src/sfa.cpp
     src/dfa.cpp
     src/nfa.cpp
     src/nfa_builder.cpp
@@ -52,3 +53,7 @@ add_test(NAME test_sequential COMMAND test_sequential)
 add_executable(test_parallel tests/test_parallel.cpp)
 target_link_libraries(test_parallel PRIVATE regex_core)
 add_test(NAME test_parallel COMMAND test_parallel)
+
+add_executable(test_sfa tests/test_sfa.cpp)
+target_link_libraries(test_sfa PRIVATE regex_core)
+add_test(NAME test_sfa COMMAND test_sfa)
