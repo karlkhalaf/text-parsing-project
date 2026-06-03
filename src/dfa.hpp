@@ -20,6 +20,7 @@ public:
     std::size_t state_count() const;
     std::size_t initial_state() const;
     bool is_final(std::size_t state) const;
+    std::vector<char> alphabet() const;
 
 private:
     void check_state(std::size_t state) const;

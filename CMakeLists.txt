@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_library(regex_core
+    src/dense_dfa.cpp
     src/dfa.cpp
     src/nfa.cpp
     src/nfa_builder.cpp
@@ -23,6 +24,10 @@ enable_testing()
 add_executable(test_dfa tests/test_dfa.cpp)
 target_link_libraries(test_dfa PRIVATE regex_core)
 add_test(NAME test_dfa COMMAND test_dfa)
+
+add_executable(test_dense_dfa tests/test_dense_dfa.cpp)
+target_link_libraries(test_dense_dfa PRIVATE regex_core)
+add_test(NAME test_dense_dfa COMMAND test_dense_dfa)
 
 add_executable(test_regex tests/test_regex.cpp)
 target_link_libraries(test_regex PRIVATE regex_core)

@@ -1,6 +1,8 @@
 #include "dfa.hpp"
 
+#include <algorithm>
 #include <stdexcept>
+#include <unordered_set>
 
 Dfa::Dfa(std::size_t state_count, std::size_t initial_state)
     : initial_state_(initial_state),
@@ -57,6 +59,20 @@ std::size_t Dfa::initial_state() const {
 bool Dfa::is_final(std::size_t state) const {
     check_state(state);
     return final_states_[state];
+}
+
+std::vector<char> Dfa::alphabet() const {
+    std::unordered_set<char> symbols;
+
+    for (const auto& state_transitions : transitions_) {
+        for (const auto& transition : state_transitions) {
+            symbols.insert(transition.first);
+        }
+    }
+
+    std::vector<char> result(symbols.begin(), symbols.end());
+    std::sort(result.begin(), result.end());
+    return result;
 }
 
 void Dfa::check_state(std::size_t state) const {

@@ -346,6 +346,7 @@ Current repository status:
 - subset construction converts NFA to DFA for the supported regex subset
 - end-to-end sequential matcher added: regex -> NFA -> DFA -> accepts(text)
 - end-to-end sequential tests added
+- dense DFA transition table added as the planned base for the optimized parallel matchers
 - parallel DFA chunk simulation added, with final state reconstruction from the initial DFA state
 - parallel multi-threaded DFA matching added (chunk mappings computed with std::thread)
 - PaREM-inspired candidate filtering added for a first pruned chunk-mapping version
