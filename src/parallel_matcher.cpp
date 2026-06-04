@@ -121,37 +121,25 @@ std::vector<std::size_t> candidate_states_for_chunk_dense(
     const char previous_last = previous_chunk.back();
     const char current_first = chunk.front();
 
-    std::vector<std::size_t> reached_after_previous;
-    std::vector<std::size_t> can_read_current;
+    std::vector<char> reachable_from_previous_last(dfa.state_count(), false);
+    std::vector<char> compatible_with_current_first(dfa.state_count(), false);
 
     for (std::size_t state = 0; state < dfa.state_count(); ++state) {
         const std::size_t after_previous = dfa.next_state(state, previous_last);
         if (after_previous != DenseDfa::invalid_state) {
-            reached_after_previous.push_back(after_previous);
+            reachable_from_previous_last[after_previous] = true;
         }
 
         if (dfa.next_state(state, current_first) != DenseDfa::invalid_state) {
-            can_read_current.push_back(state);
+            compatible_with_current_first[state] = true;
         }
     }
 
     std::vector<std::size_t> candidates;
-    for (std::size_t state : can_read_current) {
-        bool seen = false;
-        for (std::size_t reached : reached_after_previous) {
-            if (state == reached) {
-                seen = true;
-                break;
-            }
-        }
-
-        if (seen) {
+    for (std::size_t state = 0; state < dfa.state_count(); ++state) {
+        if (compatible_with_current_first[state] && reachable_from_previous_last[state]) {
             candidates.push_back(state);
         }
-    }
-
-    if (candidates.empty()) {
-        return all_states(dfa);
     }
 
     return candidates;
