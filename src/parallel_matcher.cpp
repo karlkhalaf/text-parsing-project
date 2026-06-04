@@ -1,5 +1,7 @@
 #include "parallel_matcher.hpp"
 
+#include "dense_dfa.hpp"
+
 #include <thread>
 #include <vector>
 
@@ -225,61 +227,6 @@ bool parallel_accepts(const Dfa& dfa, std::string_view text, std::size_t chunk_c
     return dense.is_final(end_state);
 }
 
-PrecomputedDfa precompute_dfa_mappings(const Dfa& dfa) {
-    return {DenseDfa(dfa)};
-}
-
-ChunkMapping simulate_chunk_precomputed(
-    const PrecomputedDfa& precomputed,
-    std::string_view chunk
-) {
-    ChunkMapping mapping(precomputed.dense.state_count(), INVALID_STATE);
-
-    for (std::size_t start = 0; start < mapping.size(); ++start) {
-        mapping[start] = start;
-    }
-
-    for (char symbol : chunk) {
-        for (std::size_t start = 0; start < mapping.size(); ++start) {
-            const std::size_t current = mapping[start];
-            if (current == INVALID_STATE) {
-                continue;
-            }
-            mapping[start] = precomputed.dense.next_state(current, symbol);
-        }
-    }
-
-    return mapping;
-}
-
-bool parallel_accepts_precomputed(const Dfa& dfa, std::string_view text, std::size_t chunk_count) {
-    if (chunk_count == 0) {
-        return false;
-    }
-    if (chunk_count == 1) {
-        return dfa.accepts(text);
-    }
-
-    const PrecomputedDfa precomputed = precompute_dfa_mappings(dfa);
-    const std::vector<std::string_view> chunks = split_text(text, chunk_count);
-    if (chunks.empty()) {
-        return precomputed.dense.is_final(precomputed.dense.initial_state());
-    }
-
-    std::vector<ChunkMapping> mappings;
-    mappings.reserve(chunks.size());
-    for (std::string_view chunk : chunks) {
-        mappings.push_back(simulate_chunk_precomputed(precomputed, chunk));
-    }
-
-    const std::size_t end_state =
-        apply_mappings_to_state(mappings, precomputed.dense.initial_state());
-    if (end_state == INVALID_STATE) {
-        return false;
-    }
-    return precomputed.dense.is_final(end_state);
-}
-
 bool parallel_accepts_pruned(const Dfa& dfa, std::string_view text, std::size_t chunk_count) {
     if (chunk_count == 0) {
         return false;
@@ -396,44 +343,4 @@ bool parallel_accepts_pruned_threads(
         return false;
     }
     return dense.is_final(end_state);
-}
-
-bool parallel_accepts_precomputed_threads(
-    const Dfa& dfa,
-    std::string_view text,
-    std::size_t thread_count
-) {
-    if (thread_count == 0) {
-        return false;
-    }
-    if (thread_count == 1) {
-        return dfa.accepts(text);
-    }
-
-    const PrecomputedDfa precomputed = precompute_dfa_mappings(dfa);
-    const std::vector<std::string_view> chunks = split_text(text, thread_count);
-    if (chunks.empty()) {
-        return precomputed.dense.is_final(precomputed.dense.initial_state());
-    }
-
-    std::vector<ChunkMapping> mappings(chunks.size());
-    std::vector<std::thread> workers;
-    workers.reserve(chunks.size());
-
-    for (std::size_t i = 0; i < chunks.size(); ++i) {
-        workers.emplace_back([&precomputed, &chunks, &mappings, i]() {
-            mappings[i] = simulate_chunk_precomputed(precomputed, chunks[i]);
-        });
-    }
-
-    for (std::thread& worker : workers) {
-        worker.join();
-    }
-
-    const std::size_t end_state =
-        apply_mappings_to_state(mappings, precomputed.dense.initial_state());
-    if (end_state == INVALID_STATE) {
-        return false;
-    }
-    return precomputed.dense.is_final(end_state);
 }

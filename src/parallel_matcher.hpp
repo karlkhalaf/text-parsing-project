@@ -1,7 +1,6 @@
 #ifndef PARALLEL_MATCHER_HPP
 #define PARALLEL_MATCHER_HPP
 
-#include "dense_dfa.hpp"
 #include "dfa.hpp"
 
 #include <cstddef>
@@ -11,10 +10,6 @@
 constexpr std::size_t INVALID_STATE = static_cast<std::size_t>(-1);
 
 using ChunkMapping = std::vector<std::size_t>;
-
-struct PrecomputedDfa {
-    DenseDfa dense;
-};
 
 ChunkMapping simulate_chunk(const Dfa& dfa, std::string_view chunk);
 
@@ -41,21 +36,6 @@ std::vector<std::size_t> candidate_states_for_chunk(
 bool parallel_accepts_pruned(const Dfa& dfa, std::string_view text, std::size_t chunk_count);
 
 bool parallel_accepts_pruned_threads(
-    const Dfa& dfa,
-    std::string_view text,
-    std::size_t thread_count
-);
-
-PrecomputedDfa precompute_dfa_mappings(const Dfa& dfa);
-
-ChunkMapping simulate_chunk_precomputed(
-    const PrecomputedDfa& precomputed,
-    std::string_view chunk
-);
-
-bool parallel_accepts_precomputed(const Dfa& dfa, std::string_view text, std::size_t chunk_count);
-
-bool parallel_accepts_precomputed_threads(
     const Dfa& dfa,
     std::string_view text,
     std::size_t thread_count
