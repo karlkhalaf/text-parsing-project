@@ -13,6 +13,7 @@ add_library(regex_core
     src/dfa_builder.cpp
     src/matcher.cpp
     src/parallel_matcher.cpp
+    src/parem_route.cpp
     src/regex_parser.cpp
 )
 target_include_directories(regex_core PUBLIC src)
@@ -57,3 +58,7 @@ add_test(NAME test_parallel COMMAND test_parallel)
 add_executable(test_sfa tests/test_sfa.cpp)
 target_link_libraries(test_sfa PRIVATE regex_core)
 add_test(NAME test_sfa COMMAND test_sfa)
+
+add_executable(test_parem_route tests/test_parem_route.cpp)
+target_link_libraries(test_parem_route PRIVATE regex_core)
+add_test(NAME test_parem_route COMMAND test_parem_route)

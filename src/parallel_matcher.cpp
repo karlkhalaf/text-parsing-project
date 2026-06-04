@@ -145,6 +145,31 @@ std::vector<std::size_t> candidate_states_for_chunk_dense(
     return candidates;
 }
 
+RouteVector simulate_route_for_states_dense(
+    const DenseDfa& dfa,
+    std::string_view chunk,
+    const std::vector<std::size_t>& start_states
+) {
+    const ChunkMapping mapping = simulate_chunk_for_states_dense(dfa, chunk, start_states);
+    return RouteVector::from_chunk_mapping(mapping, start_states);
+}
+
+std::size_t apply_routes_to_state_dense(
+    const std::vector<RouteVector>& routes,
+    std::size_t initial_state
+) {
+    if (routes.empty()) {
+        return initial_state;
+    }
+
+    RouteVector accumulated = routes.front();
+    for (std::size_t i = 1; i < routes.size(); ++i) {
+        accumulated = routes[i].compose_with(accumulated);
+    }
+
+    return accumulated.apply(initial_state);
+}
+
 }  // namespace
 
 ChunkMapping simulate_chunk(const Dfa& dfa, std::string_view chunk) {
@@ -169,6 +194,22 @@ std::vector<std::size_t> candidate_states_for_chunk(
 ) {
     const DenseDfa dense(dfa);
     return candidate_states_for_chunk_dense(dense, previous_chunk, chunk, is_first_chunk);
+}
+
+RouteVector simulate_route_for_states(
+    const Dfa& dfa,
+    std::string_view chunk,
+    const std::vector<std::size_t>& start_states
+) {
+    const DenseDfa dense(dfa);
+    return simulate_route_for_states_dense(dense, chunk, start_states);
+}
+
+std::size_t apply_routes_to_state(
+    const std::vector<RouteVector>& routes,
+    std::size_t initial_state
+) {
+    return apply_routes_to_state_dense(routes, initial_state);
 }
 
 ChunkMapping compose_mappings(const ChunkMapping& left, const ChunkMapping& right) {
@@ -229,9 +270,9 @@ bool parallel_accepts_pruned(const Dfa& dfa, std::string_view text, std::size_t 
         return dense.is_final(dense.initial_state());
     }
 
-    std::vector<ChunkMapping> mappings;
-    mappings.reserve(chunks.size());
-    mappings.push_back(simulate_chunk_for_states_dense(
+    std::vector<RouteVector> routes;
+    routes.reserve(chunks.size());
+    routes.push_back(simulate_route_for_states_dense(
         dense,
         chunks[0],
         candidate_states_for_chunk_dense(dense, "", chunks[0], true)
@@ -241,10 +282,10 @@ bool parallel_accepts_pruned(const Dfa& dfa, std::string_view text, std::size_t 
         const std::vector<std::size_t> candidates =
             candidate_states_for_chunk_dense(dense, chunks[i - 1], chunks[i], false);
 
-        mappings.push_back(simulate_chunk_for_states_dense(dense, chunks[i], candidates));
+        routes.push_back(simulate_route_for_states_dense(dense, chunks[i], candidates));
     }
 
-    const std::size_t end_state = apply_mappings_to_state(mappings, dense.initial_state());
+    const std::size_t end_state = apply_routes_to_state_dense(routes, dense.initial_state());
     if (end_state == INVALID_STATE) {
         return false;
     }
@@ -305,12 +346,12 @@ bool parallel_accepts_pruned_threads(
         return dense.is_final(dense.initial_state());
     }
 
-    std::vector<ChunkMapping> mappings(chunks.size());
+    std::vector<RouteVector> routes(chunks.size(), RouteVector(dense.state_count()));
     std::vector<std::thread> workers;
     workers.reserve(chunks.size());
 
     for (std::size_t i = 0; i < chunks.size(); ++i) {
-        workers.emplace_back([&dense, &chunks, &mappings, i]() {
+        workers.emplace_back([&dense, &chunks, &routes, i]() {
             const bool is_first_chunk = (i == 0);
             const std::string_view previous_chunk =
                 is_first_chunk ? std::string_view() : chunks[i - 1];
@@ -318,7 +359,7 @@ bool parallel_accepts_pruned_threads(
             const std::vector<std::size_t> candidates =
                 candidate_states_for_chunk_dense(dense, previous_chunk, chunks[i], is_first_chunk);
 
-            mappings[i] = simulate_chunk_for_states_dense(dense, chunks[i], candidates);
+            routes[i] = simulate_route_for_states_dense(dense, chunks[i], candidates);
         });
     }
 
@@ -326,7 +367,7 @@ bool parallel_accepts_pruned_threads(
         worker.join();
     }
 
-    const std::size_t end_state = apply_mappings_to_state(mappings, dense.initial_state());
+    const std::size_t end_state = apply_routes_to_state_dense(routes, dense.initial_state());
     if (end_state == INVALID_STATE) {
         return false;
     }

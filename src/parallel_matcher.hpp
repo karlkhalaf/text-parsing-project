@@ -2,6 +2,7 @@
 #define PARALLEL_MATCHER_HPP
 
 #include "dfa.hpp"
+#include "parem_route.hpp"
 
 #include <cstddef>
 #include <string_view>
@@ -39,6 +40,17 @@ bool parallel_accepts_pruned_threads(
     const Dfa& dfa,
     std::string_view text,
     std::size_t thread_count
+);
+
+RouteVector simulate_route_for_states(
+    const Dfa& dfa,
+    std::string_view chunk,
+    const std::vector<std::size_t>& start_states
+);
+
+std::size_t apply_routes_to_state(
+    const std::vector<RouteVector>& routes,
+    std::size_t initial_state
 );
 
 #endif
