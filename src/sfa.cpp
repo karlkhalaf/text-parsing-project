@@ -4,6 +4,7 @@
 
 #include <queue>
 #include <stdexcept>
+#include <thread>
 #include <unordered_map>
 
 namespace {
@@ -41,6 +42,52 @@ std::size_t lookup_or_add_state(
 
     index_of[mapping] = id;
     return id;
+}
+
+std::vector<std::string_view> split_text(std::string_view text, std::size_t chunk_count) {
+    std::vector<std::string_view> chunks;
+    if (chunk_count == 0) {
+        return chunks;
+    }
+
+    chunks.reserve(chunk_count);
+    const std::size_t n = text.size();
+    std::size_t start = 0;
+
+    for (std::size_t i = 0; i < chunk_count; ++i) {
+        const std::size_t remaining_chunks = chunk_count - i;
+        const std::size_t remaining_chars = n - start;
+        const std::size_t len = remaining_chars / remaining_chunks;
+
+        chunks.push_back(text.substr(start, len));
+        start += len;
+    }
+
+    return chunks;
+}
+
+SfaMapping compose_sfa_mappings(const SfaMapping& left, const SfaMapping& right) {
+    SfaMapping composed(left.size(), DenseDfa::invalid_state);
+
+    for (std::size_t state = 0; state < left.size(); ++state) {
+        const std::size_t middle = left[state];
+        if (middle == DenseDfa::invalid_state) {
+            continue;
+        }
+        composed[state] = right[middle];
+    }
+
+    return composed;
+}
+
+bool mapping_is_accepting(const Sfa& sfa, const SfaMapping& mapping) {
+    for (std::size_t sfa_state = 0; sfa_state < sfa.sfa_state_count(); ++sfa_state) {
+        if (sfa.is_final(sfa_state) && same_mapping(sfa.mapping_for_state(sfa_state), mapping)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 }  // namespace
@@ -190,8 +237,49 @@ bool Sfa::accepts(std::string_view text) const {
     return is_final(current);
 }
 
-bool Sfa::accepts_parallel(std::string_view /*text*/, std::size_t /*thread_count*/) const {
-    throw std::logic_error("Sfa::accepts_parallel is not implemented yet (phase 5)");
+bool Sfa::accepts_parallel(std::string_view text, std::size_t thread_count) const {
+    if (thread_count == 0) {
+        thread_count = 1;
+    }
+    if (text.empty()) {
+        return accepts(text);
+    }
+
+    const std::vector<std::string_view> chunks = split_text(text, thread_count);
+    if (chunks.empty()) {
+        return accepts(text);
+    }
+
+    std::vector<std::size_t> chunk_end_states(chunks.size(), invalid_sfa_state);
+    std::vector<std::thread> workers;
+    workers.reserve(chunks.size());
+
+    for (std::size_t i = 0; i < chunks.size(); ++i) {
+        workers.emplace_back([this, &chunks, &chunk_end_states, i]() {
+            std::size_t current = initial_sfa_state_;
+            for (char symbol : chunks[i]) {
+                current = next_sfa_state(current, symbol);
+                if (current == invalid_sfa_state) {
+                    return;
+                }
+            }
+            chunk_end_states[i] = current;
+        });
+    }
+
+    for (std::thread& worker : workers) {
+        worker.join();
+    }
+
+    SfaMapping composed = make_identity_mapping(dfa_state_count_);
+    for (std::size_t i = 0; i < chunk_end_states.size(); ++i) {
+        if (chunk_end_states[i] == invalid_sfa_state) {
+            return false;
+        }
+        composed = compose_sfa_mappings(composed, mapping_for_state(chunk_end_states[i]));
+    }
+
+    return mapping_is_accepting(*this, composed);
 }
 
 std::size_t Sfa::sfa_state_count() const {

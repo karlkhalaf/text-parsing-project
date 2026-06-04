@@ -56,6 +56,12 @@ static void check_sfa_matches_dfa(const char* pattern, const char* text) {
     assert(dfa.accepts(text) == sfa.accepts(text));
 }
 
+static void check_sfa_parallel_matches_sequential(const char* pattern, const char* text) {
+    const Dfa dfa = build_dfa_from_regex(pattern);
+    const Sfa sfa = Sfa::build_from_dfa(dfa);
+    assert(sfa.accepts(text) == sfa.accepts_parallel(text, 4));
+}
+
 int main() {
     test_identity_and_apply_symbol();
     test_build_from_dfa();
@@ -64,5 +70,7 @@ int main() {
     check_sfa_matches_dfa("a|b", "b");
     check_sfa_matches_dfa("(a|b)*", "abba");
     check_sfa_matches_dfa("(a|b)*", "c");
+    check_sfa_parallel_matches_sequential("(a|b)*", "abbabba");
+    check_sfa_parallel_matches_sequential("a|b", "b");
     return 0;
 }
