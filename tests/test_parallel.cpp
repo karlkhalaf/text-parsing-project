@@ -33,6 +33,18 @@ static void check_parem_candidates_are_reduced() {
     assert(candidates.size() < dfa.state_count());
 }
 
+static void check_parem_boundary_depth_reduces_candidates() {
+    const Dfa dfa = build_dfa_from_regex("abc");
+    const std::vector<std::size_t> one_char =
+        candidate_states_for_chunk(dfa, "a", "bc", false);
+    const std::vector<std::size_t> two_char =
+        candidate_states_for_chunk(dfa, "ab", "c", false);
+
+    assert(!one_char.empty());
+    assert(!two_char.empty());
+    assert(two_char.size() <= one_char.size());
+}
+
 int main() {
     check_same("a", "", 1);
     check_same("a", "", 4);
@@ -64,6 +76,7 @@ int main() {
     check_same_pruned_threads("(a|b)*", "c", 4);
 
     check_parem_candidates_are_reduced();
+    check_parem_boundary_depth_reduces_candidates();
 
     return 0;
 }

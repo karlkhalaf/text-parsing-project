@@ -53,4 +53,9 @@ std::size_t apply_routes_to_state(
     std::size_t initial_state
 );
 
+std::size_t apply_routes_parallel(
+    const std::vector<RouteVector>& routes,
+    std::size_t initial_state
+);
+
 #endif

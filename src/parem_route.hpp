@@ -34,4 +34,7 @@ private:
     std::vector<RouteEntry> routes_;
 };
 
+RouteVector reduce_routes_sequential(const std::vector<RouteVector>& routes);
+RouteVector reduce_routes_parallel(const std::vector<RouteVector>& routes);
+
 #endif

@@ -2,10 +2,13 @@
 
 #include "dense_dfa.hpp"
 
+#include <algorithm>
 #include <thread>
 #include <vector>
 
 namespace {
+
+constexpr std::size_t PAREM_BOUNDARY_DEPTH = 2;
 
 std::vector<std::string_view> split_text(std::string_view text, std::size_t chunk_count) {
     std::vector<std::string_view> chunks;
@@ -54,6 +57,44 @@ std::size_t apply_mappings_to_state(
     }
 
     return current;
+}
+
+std::size_t walk_from_state(const DenseDfa& dfa, std::size_t state, std::string_view text) {
+    std::size_t current = state;
+    for (char symbol : text) {
+        current = dfa.next_state(current, symbol);
+        if (current == DenseDfa::invalid_state) {
+            return DenseDfa::invalid_state;
+        }
+    }
+    return current;
+}
+
+void mark_reachable_after_suffix(
+    const DenseDfa& dfa,
+    std::string_view suffix,
+    std::vector<char>& reachable
+) {
+    reachable.assign(dfa.state_count(), false);
+    for (std::size_t state = 0; state < dfa.state_count(); ++state) {
+        const std::size_t end = walk_from_state(dfa, state, suffix);
+        if (end != DenseDfa::invalid_state) {
+            reachable[end] = true;
+        }
+    }
+}
+
+void mark_compatible_with_prefix(
+    const DenseDfa& dfa,
+    std::string_view prefix,
+    std::vector<char>& compatible
+) {
+    compatible.assign(dfa.state_count(), false);
+    for (std::size_t state = 0; state < dfa.state_count(); ++state) {
+        if (walk_from_state(dfa, state, prefix) != DenseDfa::invalid_state) {
+            compatible[state] = true;
+        }
+    }
 }
 
 ChunkMapping simulate_chunk_dense(const DenseDfa& dfa, std::string_view chunk) {
@@ -118,26 +159,20 @@ std::vector<std::size_t> candidate_states_for_chunk_dense(
         return all_states(dfa);
     }
 
-    const char previous_last = previous_chunk.back();
-    const char current_first = chunk.front();
+    const std::size_t suffix_len = std::min(PAREM_BOUNDARY_DEPTH, previous_chunk.size());
+    const std::size_t prefix_len = std::min(PAREM_BOUNDARY_DEPTH, chunk.size());
+    const std::string_view previous_suffix =
+        previous_chunk.substr(previous_chunk.size() - suffix_len, suffix_len);
+    const std::string_view current_prefix = chunk.substr(0, prefix_len);
 
-    std::vector<char> reachable_from_previous_last(dfa.state_count(), false);
-    std::vector<char> compatible_with_current_first(dfa.state_count(), false);
-
-    for (std::size_t state = 0; state < dfa.state_count(); ++state) {
-        const std::size_t after_previous = dfa.next_state(state, previous_last);
-        if (after_previous != DenseDfa::invalid_state) {
-            reachable_from_previous_last[after_previous] = true;
-        }
-
-        if (dfa.next_state(state, current_first) != DenseDfa::invalid_state) {
-            compatible_with_current_first[state] = true;
-        }
-    }
+    std::vector<char> reachable_from_previous_suffix(dfa.state_count(), false);
+    std::vector<char> compatible_with_current_prefix(dfa.state_count(), false);
+    mark_reachable_after_suffix(dfa, previous_suffix, reachable_from_previous_suffix);
+    mark_compatible_with_prefix(dfa, current_prefix, compatible_with_current_prefix);
 
     std::vector<std::size_t> candidates;
     for (std::size_t state = 0; state < dfa.state_count(); ++state) {
-        if (compatible_with_current_first[state] && reachable_from_previous_last[state]) {
+        if (compatible_with_current_prefix[state] && reachable_from_previous_suffix[state]) {
             candidates.push_back(state);
         }
     }
@@ -210,6 +245,13 @@ std::size_t apply_routes_to_state(
     std::size_t initial_state
 ) {
     return apply_routes_to_state_dense(routes, initial_state);
+}
+
+std::size_t apply_routes_parallel(
+    const std::vector<RouteVector>& routes,
+    std::size_t initial_state
+) {
+    return reduce_routes_parallel(routes).apply(initial_state);
 }
 
 ChunkMapping compose_mappings(const ChunkMapping& left, const ChunkMapping& right) {
@@ -367,7 +409,7 @@ bool parallel_accepts_pruned_threads(
         worker.join();
     }
 
-    const std::size_t end_state = apply_routes_to_state_dense(routes, dense.initial_state());
+    const std::size_t end_state = apply_routes_parallel(routes, dense.initial_state());
     if (end_state == INVALID_STATE) {
         return false;
     }
