@@ -161,7 +161,7 @@ Simultaneous Finite Automata are a more advanced approach. Instead of doing spec
 
 The tradeoff is that the automaton can become much larger. The SFA paper shows that this can work well for many practical regular expressions, but the state growth is a real concern.
 
-For this project, we added a smaller precomputed version rather than a full SFA implementation. The code precomputes symbol mappings for the DFA, then reuses these mappings while simulating chunks. This keeps the implementation manageable while still giving us a version that explores the time versus preprocessing tradeoff.
+For this project, we first added a smaller precomputed version, then added an SFA mode. The SFA implementation builds states that are mappings between DFA states, then uses these mappings for sequential and parallel matching. This lets us compare the basic Holub-style version, the pruned version, and a more precomputation-oriented version.
 
 ## Implementation Roadmap
 
@@ -213,10 +213,10 @@ We plan to benchmark the following dimensions:
 | Dimension | Planned values |
 | --- | --- |
 | Text size | small, medium, large, very large |
-| Thread count | 1, 2, 4, 8, 16 if available |
+| Thread count | 1, 2, 3, 4, then more only if useful |
 | Regex complexity | simple literal, medium regex, larger DFA |
 | Text type | random text, English text, log-like text, DNA-like text |
-| Algorithm | sequential, parallel_full, parallel_pruned, parallel_precomputed |
+| Algorithm | sequential, parallel_full, parallel_pruned, parallel_precomputed, sfa |
 
 The main metrics will be:
 
@@ -308,16 +308,17 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The command-line interface currently supports sequential, full parallel, pruned parallel, and precomputed parallel full-text matching:
+The command-line interface currently supports sequential, full parallel, pruned parallel, precomputed parallel, and SFA full-text matching:
 
 ```bash
 ./regex_matcher --regex "(a|b)*" --text "abba" --mode sequential
 ./regex_matcher --regex "(a|b)*" --text "abba" --mode parallel --threads 4
 ./regex_matcher --regex "(a|b)*" --text "abba" --mode pruned --threads 4
 ./regex_matcher --regex "(a|b)*" --text "abba" --mode precomputed --threads 4
+./regex_matcher --regex "(a|b)*" --text "abba" --mode sfa --threads 4
 ```
 
-The benchmark scripts are a first baseline for the current implementation. They generate small input files, run the sequential, full parallel, pruned parallel, and precomputed matchers, and prepare a CSV summary:
+The benchmark scripts are a first baseline for the current implementation. They generate small input files, run the sequential, full parallel, pruned parallel, precomputed, and SFA matchers, and prepare a CSV summary:
 
 ```bash
 python3 scripts/generate_inputs.py
@@ -326,6 +327,8 @@ python3 scripts/plot_results.py
 ```
 
 Generated input files and result files are ignored by Git. We will use the same scripts as a starting point for the final benchmark comparison.
+
+The final report will state the machine used for the benchmark runs, including the CPU and number of cores. The code is intended to be buildable with CMake on the Salle info machines.
 
 ## Current Status
 
@@ -355,9 +358,11 @@ Current repository status:
 - precomputed DFA mapping mode added as an SFA-inspired comparison point
 - baseline benchmark scripts added for input generation, timing, CSV summaries, and plots
 - plots compare all non-sequential modes against the sequential baseline
+- SFA construction and sequential SFA matching added
+- parallel SFA mode exposed in the CLI and benchmark runner
 - final benchmark comparison and report plots are not completed yet
 
-The next step is to run the final benchmark comparison. The main implemented algorithms are now the sequential baseline, the full parallel matcher, the pruned parallel matcher, and the precomputed matcher.
+The next step is to run the final benchmark comparison. The main implemented algorithms are now the sequential baseline, the full parallel matcher, the pruned parallel matcher, the precomputed matcher, and the SFA matcher.
 
 ## References
 
@@ -366,3 +371,7 @@ The next step is to run the final benchmark comparison. The main implemented alg
 - Jan Holub and Stanislav Stekr, "On Parallel Implementations of Deterministic Finite Automata", 2009
 - Suejb Memeti and Sabri Pllana, "PaREM: A Novel Approach for Parallel Regular Expression Matching", 2014
 - Ryoma Sinya, Kiminori Matsuzaki, and Masataka Sassa, "Simultaneous Finite Automata: An Efficient Data-Parallel Model for Regular Expression Matching", 2013
+
+## Acknowledgement
+
+We acknowledge using AI-assisted tools, mainly Codex, for debugging help, code review, LaTeX editing, and benchmark/plotting support. All algorithmic choices, implementation details, and final explanations are reviewed and understood by the team.
