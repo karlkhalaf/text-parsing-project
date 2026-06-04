@@ -2,7 +2,48 @@
 
 #include "dense_dfa.hpp"
 
+#include <queue>
 #include <stdexcept>
+#include <unordered_map>
+
+namespace {
+
+struct SfaMappingHash {
+    std::size_t operator()(const SfaMapping& mapping) const {
+        std::size_t hash = mapping.size();
+        for (const std::size_t value : mapping) {
+            hash ^= value + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+        }
+        return hash;
+    }
+};
+
+std::size_t lookup_or_add_state(
+    const SfaMapping& mapping,
+    std::vector<SfaMapping>& state_mappings,
+    std::vector<bool>& final_sfa_states,
+    std::unordered_map<SfaMapping, std::size_t, SfaMappingHash>& index_of,
+    const Dfa& dfa,
+    const DenseDfa& dense
+) {
+    const auto found = index_of.find(mapping);
+    if (found != index_of.end()) {
+        return found->second;
+    }
+
+    const std::size_t id = state_mappings.size();
+    state_mappings.push_back(mapping);
+
+    const std::size_t mapped_initial = mapping[dfa.initial_state()];
+    const bool is_final =
+        mapped_initial != DenseDfa::invalid_state && dense.is_final(mapped_initial);
+    final_sfa_states.push_back(is_final);
+
+    index_of[mapping] = id;
+    return id;
+}
+
+}  // namespace
 
 SfaMapping make_identity_mapping(std::size_t dfa_state_count) {
     SfaMapping mapping(dfa_state_count, DenseDfa::invalid_state);
@@ -55,12 +96,98 @@ Sfa::Sfa(
       symbol_to_index_(std::move(symbol_to_index)),
       transitions_by_symbol_(std::move(transitions_by_symbol)) {}
 
-Sfa Sfa::build_from_dfa(const Dfa& /*dfa*/) {
-    throw std::logic_error("Sfa::build_from_dfa is not implemented yet (phase 3)");
+Sfa Sfa::build_from_dfa(const Dfa& dfa) {
+    const DenseDfa dense(dfa);
+    const std::vector<char>& alphabet = dense.alphabet();
+
+    std::vector<std::size_t> symbol_to_index(256, invalid_sfa_state);
+    for (std::size_t i = 0; i < alphabet.size(); ++i) {
+        symbol_to_index[static_cast<unsigned char>(alphabet[i])] = i;
+    }
+
+    std::vector<SfaMapping> state_mappings;
+    std::vector<bool> final_sfa_states;
+    std::unordered_map<SfaMapping, std::size_t, SfaMappingHash> index_of;
+
+    const SfaMapping identity = make_identity_mapping(dfa.state_count());
+    const std::size_t initial_sfa_state = lookup_or_add_state(
+        identity,
+        state_mappings,
+        final_sfa_states,
+        index_of,
+        dfa,
+        dense
+    );
+
+    std::queue<std::size_t> pending;
+    std::vector<bool> seen(state_mappings.size(), false);
+    seen[initial_sfa_state] = true;
+    pending.push(initial_sfa_state);
+
+    while (!pending.empty()) {
+        const std::size_t sfa_state = pending.front();
+        pending.pop();
+
+        const SfaMapping mapping = state_mappings[sfa_state];
+        for (char symbol : alphabet) {
+            const SfaMapping next_mapping = apply_symbol_to_mapping(dense, mapping, symbol);
+            const std::size_t next_sfa_state = lookup_or_add_state(
+                next_mapping,
+                state_mappings,
+                final_sfa_states,
+                index_of,
+                dfa,
+                dense
+            );
+
+            if (next_sfa_state >= seen.size()) {
+                seen.resize(next_sfa_state + 1, false);
+            }
+            if (!seen[next_sfa_state]) {
+                seen[next_sfa_state] = true;
+                pending.push(next_sfa_state);
+            }
+        }
+    }
+
+    const std::size_t sfa_state_count = state_mappings.size();
+    std::vector<std::vector<std::size_t>> transitions_by_symbol(
+        alphabet.size(),
+        std::vector<std::size_t>(sfa_state_count, invalid_sfa_state)
+    );
+
+    for (std::size_t sfa_state = 0; sfa_state < sfa_state_count; ++sfa_state) {
+        const SfaMapping& mapping = state_mappings[sfa_state];
+        for (std::size_t symbol_index = 0; symbol_index < alphabet.size(); ++symbol_index) {
+            const SfaMapping next_mapping =
+                apply_symbol_to_mapping(dense, mapping, alphabet[symbol_index]);
+            transitions_by_symbol[symbol_index][sfa_state] = index_of.at(next_mapping);
+        }
+    }
+
+    return Sfa(
+        dfa.state_count(),
+        dfa.initial_state(),
+        std::move(state_mappings),
+        initial_sfa_state,
+        std::move(final_sfa_states),
+        alphabet,
+        std::move(symbol_to_index),
+        std::move(transitions_by_symbol)
+    );
 }
 
-bool Sfa::accepts(std::string_view /*text*/) const {
-    throw std::logic_error("Sfa::accepts is not implemented yet (phase 4)");
+bool Sfa::accepts(std::string_view text) const {
+    std::size_t current = initial_sfa_state_;
+
+    for (char symbol : text) {
+        current = next_sfa_state(current, symbol);
+        if (current == invalid_sfa_state) {
+            return false;
+        }
+    }
+
+    return is_final(current);
 }
 
 bool Sfa::accepts_parallel(std::string_view /*text*/, std::size_t /*thread_count*/) const {
