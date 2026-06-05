@@ -1,5 +1,6 @@
 #include "matcher.hpp"
 #include "parallel_matcher.hpp"
+#include "search_matcher.hpp"
 #include "sfa.hpp"
 
 #include <exception>
@@ -13,6 +14,7 @@ int main(int argc, char** argv) {
     std::string text;
     std::string input_path;
     std::string mode = "sequential";
+    std::string task = "full";
     std::size_t threads = 4;
     bool text_argument_seen = false;
 
@@ -27,11 +29,14 @@ int main(int argc, char** argv) {
             input_path = argv[++i];
         } else if (arg == "--mode" && i + 1 < argc) {
             mode = argv[++i];
+        } else if (arg == "--task" && i + 1 < argc) {
+            task = argv[++i];
         } else if (arg == "--threads" && i + 1 < argc) {
             threads = static_cast<std::size_t>(std::stoul(argv[++i]));
         } else if (arg == "--help") {
             std::cout << "Usage: regex_matcher --regex PATTERN (--text TEXT | --input FILE) "
-                         "[--mode sequential|parallel|pruned|sfa] [--threads N]\n";
+                         "[--mode sequential|parallel|pruned|sfa] "
+                         "[--task full|search] [--threads N]\n";
             return 0;
         }
     }
@@ -57,8 +62,15 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    if (task != "full" && task != "search") {
+        std::cerr << "Unknown --task (use full or search)\n";
+        return 1;
+    }
+
     try {
-        const Dfa dfa = build_dfa_from_regex(pattern);
+        const Dfa dfa =
+            (task == "search") ? build_search_dfa_from_regex(pattern, text)
+                               : build_dfa_from_regex(pattern);
         bool ok = false;
         if (mode == "sequential") {
             ok = dfa.accepts(text);

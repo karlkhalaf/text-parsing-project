@@ -15,6 +15,7 @@ add_library(regex_core
     src/parallel_matcher.cpp
     src/parem_route.cpp
     src/regex_parser.cpp
+    src/search_matcher.cpp
 )
 target_include_directories(regex_core PUBLIC src)
 
@@ -62,3 +63,7 @@ add_test(NAME test_sfa COMMAND test_sfa)
 add_executable(test_parem_route tests/test_parem_route.cpp)
 target_link_libraries(test_parem_route PRIVATE regex_core)
 add_test(NAME test_parem_route COMMAND test_parem_route)
+
+add_executable(test_search tests/test_search.cpp)
+target_link_libraries(test_search PRIVATE regex_core)
+add_test(NAME test_search COMMAND test_search)
