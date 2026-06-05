@@ -16,24 +16,26 @@ def load_rows(path: Path) -> list[dict[str, str]]:
 
 
 def compute_summary(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    grouped: dict[tuple[str, str, str, str], list[float]] = defaultdict(list)
+    grouped: dict[tuple[str, str, str, str, str], list[float]] = defaultdict(list)
     for row in rows:
-        key = (row["case"], row["size_label"], row["mode"], row["threads"])
+        task = row.get("task", "full")
+        key = (task, row["case"], row["size_label"], row["mode"], row["threads"])
         grouped[key].append(float(row["runtime_seconds"]))
 
-    sequential_times: dict[tuple[str, str], float] = {}
-    for (case, size_label, mode, threads), values in grouped.items():
+    sequential_times: dict[tuple[str, str, str], float] = {}
+    for (task, case, size_label, mode, threads), values in grouped.items():
         if mode == "sequential" and threads == "1":
-            sequential_times[(case, size_label)] = average(values)
+            sequential_times[(task, case, size_label)] = average(values)
 
     summary = []
-    for (case, size_label, mode, threads), values in sorted(grouped.items()):
+    for (task, case, size_label, mode, threads), values in sorted(grouped.items()):
         runtime = average(values)
-        baseline = sequential_times.get((case, size_label), runtime)
+        baseline = sequential_times.get((task, case, size_label), runtime)
         speedup = baseline / runtime if runtime > 0 else 0.0
         thread_count = int(threads)
         efficiency = speedup / thread_count if thread_count > 0 else 0.0
         summary.append({
+            "task": task,
             "case": case,
             "size_label": size_label,
             "mode": mode,
@@ -67,29 +69,32 @@ def try_plot(summary: list[dict[str, str]], output_dir: Path) -> None:
         print("no non-sequential benchmark rows to plot")
         return
 
-    for case in sorted({row["case"] for row in comparison_rows}):
-        case_rows = [row for row in comparison_rows if row["case"] == case]
+    for task in sorted({row.get("task", "full") for row in comparison_rows}):
+        task_rows = [row for row in comparison_rows if row.get("task", "full") == task]
 
-        for size_label in sorted({row["size_label"] for row in case_rows}):
-            rows = [row for row in case_rows if row["size_label"] == size_label]
+        for case in sorted({row["case"] for row in task_rows}):
+            case_rows = [row for row in task_rows if row["case"] == case]
 
-            plt.figure(figsize=(7, 4))
-            for mode in sorted({row["mode"] for row in rows}):
-                mode_rows = sorted(
-                    [row for row in rows if row["mode"] == mode],
-                    key=lambda row: int(row["threads"]),
-                )
-                threads = [int(row["threads"]) for row in mode_rows]
-                speedups = [float(row["speedup_vs_sequential"]) for row in mode_rows]
-                plt.plot(threads, speedups, marker="o", label=mode)
+            for size_label in sorted({row["size_label"] for row in case_rows}):
+                rows = [row for row in case_rows if row["size_label"] == size_label]
 
-            plt.xlabel("threads")
-            plt.ylabel("speedup vs sequential")
-            plt.title(f"Speedup comparison, {case}, {size_label}")
-            plt.legend()
-            plt.tight_layout()
-            plt.savefig(output_dir / f"speedup_{case}_{size_label}.png")
-            plt.close()
+                plt.figure(figsize=(7, 4))
+                for mode in sorted({row["mode"] for row in rows}):
+                    mode_rows = sorted(
+                        [row for row in rows if row["mode"] == mode],
+                        key=lambda row: int(row["threads"]),
+                    )
+                    threads = [int(row["threads"]) for row in mode_rows]
+                    speedups = [float(row["speedup_vs_sequential"]) for row in mode_rows]
+                    plt.plot(threads, speedups, marker="o", label=mode)
+
+                plt.xlabel("threads")
+                plt.ylabel("speedup vs sequential")
+                plt.title(f"Speedup comparison, {task}, {case}, {size_label}")
+                plt.legend()
+                plt.tight_layout()
+                plt.savefig(output_dir / f"speedup_{task}_{case}_{size_label}.png")
+                plt.close()
 
     print(f"wrote plots to {output_dir}")
 

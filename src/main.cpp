@@ -14,7 +14,7 @@ int main(int argc, char** argv) {
     std::string text;
     std::string input_path;
     std::string mode = "sequential";
-    std::string task = "full";
+    std::string task = "search";
     std::size_t threads = 4;
     bool text_argument_seen = false;
 
@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
         } else if (arg == "--help") {
             std::cout << "Usage: regex_matcher --regex PATTERN (--text TEXT | --input FILE) "
                          "[--mode sequential|parallel|pruned|sfa] "
-                         "[--task full|search] [--threads N]\n";
+                         "[--task search|full] [--threads N]\n";
             return 0;
         }
     }

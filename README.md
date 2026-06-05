@@ -18,6 +18,13 @@ for each character c in text:
 
 This takes linear time in the size of the text. The difficulty is that it looks inherently sequential, because the state after position `i` is needed before processing position `i + 1`. The main purpose of the project is to study how this dependency can be reorganized so that several CPU threads can work on different parts of the input.
 
+The implementation now separates two related tasks:
+
+- `full`: decide whether the whole input text is accepted by the regex. This is the clean automata problem used to build and validate the parallel DFA algorithms.
+- `search`: decide whether the regex appears somewhere inside the text. This is closer to the project statement about searching large texts. We implement it by building a DFA for `Sigma* pattern Sigma*`, then running the same sequential or parallel engines on that DFA.
+
+Counting occurrences is not implemented yet. It remains a possible extension, because it would require storing more information per chunk than just the ending state.
+
 ## Context And Motivation
 
 The project description asks us to implement a parallelized regex or similar matching algorithm and test it on large texts. We choose the regex track because it connects naturally to deterministic finite automata and to the parallel prefix/reduction ideas from the course.
@@ -81,7 +88,7 @@ state = f1[state]
 ...
 ```
 
-This gives the same final state for full-text matching and avoids composing full mappings when only the initial DFA state is needed.
+This gives the same final state for full-text matching and avoids composing full mappings when only the initial DFA state is needed. For search, we first transform the regex into a search automaton for `Sigma* pattern Sigma*`, so the same chunk-mapping algorithm can still be used.
 
 The important complexity intuition is:
 
@@ -125,14 +132,16 @@ The first parallel version will follow Holub and Stekr's general DFA method for 
 
 For simple acceptance of the full text, each mapping only needs to store the ending state for each possible starting state.
 
-For counting matches, the mapping must store more information. For each possible starting state, it may need:
+For search, we use the same algorithm on a different DFA. Instead of matching only the pattern automaton, the program builds a search automaton that can skip characters before the match and stay accepting after a match has been found.
+
+For counting matches, the mapping would need to store more information. For each possible starting state, it may need:
 
 ```text
 end_state
 number_of_final_states_reached
 ```
 
-Then the reduction combines both the ending state and the count. This is planned after the basic acceptance/matching version is correct.
+Then the reduction combines both the ending state and the count. We keep this as future work, because it is more invasive and needs careful tests for chunk boundaries and overlapping matches.
 
 The implementation should avoid unnecessary locks. Each thread can write into its own mapping vector, and the final reconstruction is done after all threads have joined. The theoretical description uses function composition, but the CPU version only follows the state reached from the real initial state.
 
@@ -216,9 +225,14 @@ We plan to benchmark the following dimensions:
 | --- | --- |
 | Text size | small, medium, large, very large |
 | Thread count | 1, 2, 3, 4, then more only if useful |
-| Regex complexity | simple literal, medium regex, larger DFA |
+| Regex complexity | full-text star cases, search cases with a required substring, larger DFA |
 | Text type | random text, English text, log-like text, DNA-like text |
 | Algorithm | sequential, parallel_full, parallel_pruned, sfa |
+
+The benchmark runner separates the two tasks:
+
+- full-text cases keep regexes such as `a*`, `(a|b)*`, and `(a|b|c)*`, because these are useful for testing the basic DFA membership computation;
+- search cases use regexes such as `aaa`, `abb`, `abc`, and `(a|b)*abb`, because search benchmarks should require a real pattern occurrence and should not rely on regexes that accept the empty string.
 
 The main metrics will be:
 
@@ -310,16 +324,17 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The command-line interface currently supports sequential, full parallel, pruned parallel, and SFA full-text matching:
+The command-line interface currently supports sequential, full parallel, pruned parallel, and SFA matching. The default task is `search`, because that is the closest to the project statement. The `full` task is still available for the simpler automata membership problem and for validation.
 
 ```bash
-./regex_matcher --regex "(a|b)*" --text "abba" --mode sequential
-./regex_matcher --regex "(a|b)*" --text "abba" --mode parallel --threads 4
-./regex_matcher --regex "(a|b)*" --text "abba" --mode pruned --threads 4
-./regex_matcher --regex "(a|b)*" --text "abba" --mode sfa --threads 4
+./regex_matcher --regex "abb" --text "xxabbxx" --mode sequential --task search
+./regex_matcher --regex "abb" --text "xxabbxx" --mode parallel --task search --threads 4
+./regex_matcher --regex "abb" --text "xxabbxx" --mode pruned --task search --threads 4
+./regex_matcher --regex "abb" --text "xxabbxx" --mode sfa --task search --threads 4
+./regex_matcher --regex "(a|b)*" --text "abba" --mode parallel --task full --threads 4
 ```
 
-The benchmark scripts are a first baseline for the current implementation. They generate small input files, run the sequential, full parallel, pruned parallel, and SFA matchers, and prepare a CSV summary:
+The benchmark scripts are a first baseline for the current implementation. They generate small input files, run the sequential, full parallel, pruned parallel, and SFA matchers on both `full` and `search` tasks, and prepare a CSV summary:
 
 ```bash
 python3 scripts/generate_inputs.py
@@ -362,9 +377,11 @@ Current repository status:
 - plots compare all non-sequential modes against the sequential baseline
 - SFA construction and sequential SFA matching added
 - parallel SFA mode exposed in the CLI and benchmark runner
+- search task added through a `Sigma* pattern Sigma*` automaton, reusing the same matching engines
+- benchmark runner separates full-text regex cases from search regex cases
 - final benchmark comparison and report plots are not completed yet
 
-The next step is to run the final benchmark comparison. The main implemented algorithms are now the sequential baseline, the full parallel matcher, the pruned parallel matcher, and the SFA matcher.
+The next step is to run the final benchmark comparison. The main implemented algorithms are now the sequential baseline, the full parallel matcher, the pruned parallel matcher, and the SFA matcher, each usable for both full-text acceptance and search.
 
 ## References
 
