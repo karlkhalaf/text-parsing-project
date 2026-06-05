@@ -49,8 +49,15 @@ static void test_parallel_reduce_matches_sequential_reduce() {
            reduce_routes_parallel(routes).apply(0));
 }
 
+static void test_empty_route_list_keeps_initial_state() {
+    const std::vector<RouteVector> routes;
+    assert(apply_routes_to_state(routes, 2) == 2);
+    assert(apply_routes_parallel(routes, 2) == 2);
+}
+
 int main() {
     test_route_compose_matches_mapping_compose();
     test_parallel_reduce_matches_sequential_reduce();
+    test_empty_route_list_keeps_initial_state();
     return 0;
 }

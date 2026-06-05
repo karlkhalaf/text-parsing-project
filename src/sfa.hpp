@@ -20,13 +20,10 @@ class Sfa {
 public:
     static constexpr std::size_t invalid_sfa_state = static_cast<std::size_t>(-1);
 
-    // Phase 3 (Chkeibs): subset construction from DFA using the helpers above.
     static Sfa build_from_dfa(const Dfa& dfa);
 
-    // Phase 4: single-thread walk on the SFA transition table.
     bool accepts(std::string_view text) const;
 
-    // Phase 5: chunk the text, walk each chunk on the SFA, then merge SFA states.
     bool accepts_parallel(std::string_view text, std::size_t thread_count) const;
 
     std::size_t sfa_state_count() const;
@@ -41,7 +38,6 @@ public:
 private:
     Sfa(
         std::size_t dfa_state_count,
-        std::size_t dfa_initial_state,
         std::vector<SfaMapping> state_mappings,
         std::size_t initial_sfa_state,
         std::vector<bool> final_sfa_states,
@@ -54,7 +50,6 @@ private:
     void check_sfa_state(std::size_t sfa_state) const;
 
     std::size_t dfa_state_count_;
-    std::size_t dfa_initial_state_;
     std::vector<SfaMapping> state_mappings_;
     std::size_t initial_sfa_state_;
     std::vector<bool> final_sfa_states_;

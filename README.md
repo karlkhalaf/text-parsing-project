@@ -142,8 +142,8 @@ The full Holub-style algorithm tries every DFA state as a possible starting stat
 
 The rough idea is to use transition information around chunk boundaries. For a chunk, one can look at:
 
-- states compatible with the first character of the current chunk
-- states reachable from the last character of the previous chunk
+- states compatible with the beginning of the current chunk
+- states reachable from the end of the previous chunk
 
 PaREM describes this as taking an intersection of candidate sets, often written as something like:
 
@@ -153,7 +153,7 @@ R = S intersect L
 
 This can reduce the amount of speculative work, especially when the transition table is sparse.
 
-For our project, we added a first PaREM-inspired pruning version after the full Holub-style enumeration was working. It is not meant to be a full implementation of the PaREM paper, but it follows the same idea: reduce the set of candidate states when possible, while falling back to the full state set when pruning would be unsafe. This gives us a second parallel mode to compare in the benchmarks.
+For our project, the `pruned` mode is a PaREM-inspired version adapted to our DFA matcher. It uses a small boundary depth, currently two characters, to compute candidate states with the same `S intersect L` idea. It also stores the useful effect of a chunk as route vectors instead of always carrying a full mapping for every DFA state. The route vectors are then combined with an associative tree reduction. This gives us a second parallel mode to compare with the full Holub-style enumeration.
 
 ## SFA Precomputation Version
 
@@ -198,6 +198,8 @@ For this project, the precomputation-based extension is the SFA mode. The implem
 ### Milestone 5: PaREM-inspired pruning
 
 - Add candidate-state pruning around chunk boundaries.
+- Store compact route vectors for the active chunk routes.
+- Combine route vectors with an associative reduction.
 - Compare full enumeration with the pruned version.
 - Measure when pruning helps and when its overhead is not worth it.
 
@@ -352,7 +354,9 @@ Current repository status:
 - full and pruned modes now use the dense DFA transition table
 - parallel DFA chunk simulation added, with final state reconstruction from the initial DFA state
 - parallel multi-threaded DFA matching added (chunk mappings computed with std::thread)
-- PaREM-inspired candidate filtering added for a first pruned chunk-mapping version
+- PaREM-inspired candidate filtering added with a two-character boundary depth
+- pruned mode stores compact route vectors instead of full mappings when possible
+- route vectors can be combined with a parallel tree-style reduction
 - pruned parallel mode exposed in the CLI and benchmark runner
 - baseline benchmark scripts added for input generation, timing, CSV summaries, and plots
 - plots compare all non-sequential modes against the sequential baseline

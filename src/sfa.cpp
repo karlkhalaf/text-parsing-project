@@ -126,7 +126,6 @@ bool same_mapping(const SfaMapping& left, const SfaMapping& right) {
 
 Sfa::Sfa(
     std::size_t dfa_state_count,
-    std::size_t dfa_initial_state,
     std::vector<SfaMapping> state_mappings,
     std::size_t initial_sfa_state,
     std::vector<bool> final_sfa_states,
@@ -135,7 +134,6 @@ Sfa::Sfa(
     std::vector<std::vector<std::size_t>> transitions_by_symbol
 )
     : dfa_state_count_(dfa_state_count),
-      dfa_initial_state_(dfa_initial_state),
       state_mappings_(std::move(state_mappings)),
       initial_sfa_state_(initial_sfa_state),
       final_sfa_states_(std::move(final_sfa_states)),
@@ -214,7 +212,6 @@ Sfa Sfa::build_from_dfa(const Dfa& dfa) {
 
     return Sfa(
         dfa.state_count(),
-        dfa.initial_state(),
         std::move(state_mappings),
         initial_sfa_state,
         std::move(final_sfa_states),

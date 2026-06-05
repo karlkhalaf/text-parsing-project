@@ -251,6 +251,9 @@ std::size_t apply_routes_parallel(
     const std::vector<RouteVector>& routes,
     std::size_t initial_state
 ) {
+    if (routes.empty()) {
+        return initial_state;
+    }
     return reduce_routes_parallel(routes).apply(initial_state);
 }
 

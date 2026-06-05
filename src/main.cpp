@@ -14,6 +14,7 @@ int main(int argc, char** argv) {
     std::string input_path;
     std::string mode = "sequential";
     std::size_t threads = 4;
+    bool text_argument_seen = false;
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -21,6 +22,7 @@ int main(int argc, char** argv) {
             pattern = argv[++i];
         } else if (arg == "--text" && i + 1 < argc) {
             text = argv[++i];
+            text_argument_seen = true;
         } else if (arg == "--input" && i + 1 < argc) {
             input_path = argv[++i];
         } else if (arg == "--mode" && i + 1 < argc) {
@@ -39,7 +41,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    if (text.empty() && !input_path.empty()) {
+    if (!text_argument_seen && !input_path.empty()) {
         std::ifstream input_file(input_path);
         if (!input_file) {
             std::cerr << "Could not open --input file\n";
@@ -50,7 +52,7 @@ int main(int argc, char** argv) {
         text = buffer.str();
     }
 
-    if (text.empty()) {
+    if (!text_argument_seen && input_path.empty()) {
         std::cerr << "Missing --text or --input\n";
         return 1;
     }
