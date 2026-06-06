@@ -6,12 +6,11 @@ import random
 
 
 DEFAULT_SIZES = {
-    "small": 1_000,
-    "medium": 10_000,
-    "large": 100_000,
-    "xlarge": 1_000_000,
-    "xxlarge": 10_000_000,
-    "huge": 50_000_000,
+    "small": 100_000,
+    "medium": 1_000_000,
+    "large": 50_000_000,
+    "huge": 400_000_000,
+    "gigantic": 1_000_000_000,
 }
 
 

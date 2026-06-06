@@ -21,7 +21,7 @@ SEARCH_CASES = [
     ("abc_block_search", "ab*cac*b", "abc_random"),
 ]
 
-SIZES = ["small", "medium", "large", "xlarge", "xxlarge", "huge"]
+SIZES = ["small", "medium", "large", "huge", "gigantic"]
 
 
 def cases_for_task(task: str) -> list[tuple[str, str, str]]:
