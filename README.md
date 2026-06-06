@@ -446,9 +446,10 @@ Current repository status:
 - parallel SFA mode exposed in the CLI and benchmark runner
 - search task added through a `Sigma* pattern Sigma*` automaton, reusing the same matching engines
 - benchmark runner separates full-text regex cases from search regex cases
-- final benchmark comparison and report plots are not completed yet
+- final benchmark comparison has been run locally, with CSV summaries and plots generated
+- report benchmark tables and plots have been prepared from the measured results
 
-The next step is to run the final benchmark comparison. The main implemented algorithms are now the sequential baseline, the full parallel matcher, the pruned parallel matcher, and the SFA matcher, each usable for both full-text acceptance and search.
+The next step is to finalize the report and slides, making sure the benchmark discussion stays consistent with the measured results and the project references. The main implemented algorithms are now the sequential baseline, the full parallel matcher, the pruned parallel matcher, and the SFA matcher, each usable for both full-text acceptance and search.
 
 ## References
 
