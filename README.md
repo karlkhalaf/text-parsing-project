@@ -2,7 +2,7 @@
 
 This repository is for our CSE305 Concurrent Programming project at Ecole Polytechnique. We work on the "parallel text parsing" topic, and more specifically on the regular expression matching track.
 
-At this stage, the repository is being developed progressively. The first goal is to obtain a correct sequential DFA baseline, then a parallel CPU implementation, then benchmarks and optimizations. We want the final repository to show the real evolution of the project, so the implementation will be built in small, understandable steps rather than in one large commit at the end.
+The repository was developed progressively: first a correct sequential DFA baseline, then a parallel CPU implementation, then pruning, SFA, and benchmarks. We wanted the final repository to show the real evolution of the project, so the implementation was built in small, understandable steps rather than in one large commit at the end.
 
 ## Project Overview
 
@@ -37,7 +37,7 @@ Our main references are:
 - Memeti and Pllana, "PaREM: A Novel Approach for Parallel Regular Expression Matching"
 - Sinya, Matsuzaki, and Sassa, "Simultaneous Finite Automata"
 
-Holub and Stekr provide the baseline parallel DFA idea that we plan to implement first. PaREM and SFA are useful for possible optimizations or discussion after the baseline is correct.
+Holub and Stekr provide the baseline parallel DFA idea used in the project. PaREM and SFA are the two main directions we used for improvements after the baseline was correct.
 
 ## Course Connection
 
@@ -97,7 +97,7 @@ sequential DFA:        O(n)
 parallel DFA idea:     about O(|Q| n / p + |Q| log p)
 ```
 
-Here `n` is the input size, `|Q|` is the number of DFA states, and `p` is the number of threads. This means the method can help for large texts and small or moderate DFAs, but the factor `|Q|` can become expensive. This tradeoff will be part of the final analysis.
+Here `n` is the input size, `|Q|` is the number of DFA states, and `p` is the number of threads. This means the method can help for large texts and small or moderate DFAs, but the factor `|Q|` can become expensive. This tradeoff is one of the main points of the benchmark analysis.
 
 ## Sequential DFA Baseline
 
@@ -123,7 +123,7 @@ The baseline is important because every parallel result will be compared against
 
 ## Parallel DFA Algorithm
 
-The first parallel version will follow Holub and Stekr's general DFA method for shared-memory machines:
+The basic parallel version follows Holub and Stekr's general DFA method for shared-memory machines:
 
 1. Split the input text into `p` chunks.
 2. In each thread, compute the effect of the local chunk from every possible DFA state.
@@ -271,12 +271,14 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The executable is then available at `build/regex_matcher`. It supports four modes:
+The executable is then available at `build/regex_matcher`. The four main modes used in the report and benchmarks are:
 
 - `sequential`, the dense sequential DFA baseline;
 - `parallel`, the Holub-style chunk mapping algorithm;
 - `pruned`, the PaREM-inspired version with candidate pruning and route vectors;
 - `sfa`, the simultaneous finite automaton version.
+
+The executable also has a `naive` mode, which keeps the older hashmap-based DFA matcher. It is mainly useful to check the effect of the dense DFA transition table and is not part of the final benchmark comparison.
 
 It also supports two tasks:
 
@@ -299,7 +301,7 @@ The most useful command-line options are:
 - `--text TEXT`, input text given directly on the command line;
 - `--input FILE`, input text read from a file;
 - `--task search|full`, choose substring search or full-text acceptance;
-- `--mode sequential|parallel|pruned|sfa`, choose the matching algorithm;
+- `--mode sequential|parallel|pruned|sfa|naive`, choose the matching algorithm;
 - `--threads N`, number of worker threads for the parallel modes.
 
 To reproduce the benchmark campaign from scratch, first build in Release mode as above, then generate the benchmark inputs:
