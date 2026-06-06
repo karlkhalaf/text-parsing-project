@@ -109,14 +109,15 @@ The planned pipeline is:
 regex -> NFA -> DFA -> sequential DFA run
 ```
 
-The exact supported syntax will be fixed early and documented in the code and tests. We expect to support a student-project subset such as:
+The supported regex syntax is intentionally small, because the goal of the project is the automata and parallel matching algorithm rather than building a full industrial regex engine. The current implementation supports:
 
-- literal characters
-- concatenation
-- union with `|`
-- Kleene star `*`
-- parentheses
-- possibly `+`, `?`, and simple character classes if time allows
+- literal non-operator characters;
+- implicit concatenation, for example `ab`;
+- union with `|`;
+- Kleene star with `*`;
+- parentheses for grouping.
+
+Features such as `+`, `?`, `.`, character classes, escaping, and full `std::regex` syntax are not supported. This keeps the parser simple enough to explain clearly, while still allowing non-trivial NFAs and DFAs for the parallel algorithms.
 
 The baseline is important because every parallel result will be compared against it.
 
@@ -334,6 +335,37 @@ The command-line interface currently supports sequential, full parallel, pruned 
 ./regex_matcher --regex "(a|b)*" --text "abba" --mode parallel --task full --threads 4
 ```
 
+### CLI Options
+
+The executable can be run with different tasks and algorithms, so the evaluator can choose the case they want to test.
+
+The most useful options are:
+
+- `--regex PATTERN`, regex to compile;
+- `--text TEXT`, input text given directly on the command line;
+- `--input FILE`, input text read from a file;
+- `--task search|full`, choose substring search or full-text acceptance;
+- `--mode sequential|parallel|pruned|sfa`, choose the matching algorithm;
+- `--threads N`, number of worker threads for the parallel modes.
+
+The default task is `search`, because it is closest to the project statement about looking for a pattern inside a large text. In this task, the program builds a DFA for `Sigma* pattern Sigma*`, so running the usual DFA acceptance algorithm answers the question "does the pattern occur somewhere in the text?". The `full` task is still kept because it is the clean automata membership problem and it is useful for validating the parallel DFA algorithm.
+
+Examples:
+
+```bash
+./regex_matcher --regex "abb" --text "xxabbxx" --task search --mode sequential
+./regex_matcher --regex "abb" --text "xxabbxx" --task search --mode parallel --threads 4
+./regex_matcher --regex "(a|b)*" --text "abba" --task full --mode sfa --threads 4
+./regex_matcher --regex "error" --input data/log.txt --task search --mode pruned --threads 4
+```
+
+All modes use the same regex-to-DFA pipeline first. The difference is only how the resulting automaton is evaluated on the text:
+
+- `sequential` runs the DFA normally from left to right;
+- `parallel` follows the Holub-style chunk mapping method;
+- `pruned` adds the PaREM-inspired candidate pruning and route representation;
+- `sfa` uses the precomputed simultaneous finite automaton representation.
+
 The benchmark scripts are a first baseline for the current implementation. They generate input files, run the sequential, full parallel, pruned parallel, and SFA matchers on both `full` and `search` tasks, and prepare a CSV summary:
 
 ```bash
@@ -358,6 +390,26 @@ python3 scripts/run_benchmarks.py --exe build/regex_matcher --sizes small --repe
 ```
 
 Generated input files and result files are ignored by Git. We will use the same scripts as a starting point for the final benchmark comparison.
+
+### Benchmark Analysis Summary
+
+We ran the benchmark campaign in Release mode on one reference machine, using both tasks:
+
+- full-text acceptance (`full`);
+- substring search (`search`).
+
+The benchmark compared the four implemented modes: `sequential`, `parallel`, `pruned`, and `sfa`. For each case, results were averaged over several regexes of the same task. The run used 1, 2, 3, and 4 threads, with 5 measured repetitions and one warmup run.
+
+The detailed CSV and per-regex plots are useful for checking individual cases, but the most readable results are the averaged summaries. On the largest input size (`huge`), the average speedups at 4 threads were:
+
+| Task | parallel | pruned | sfa |
+| --- | ---: | ---: | ---: |
+| search | 1.63x | 2.49x | 3.17x |
+| full | 2.01x | 2.99x | 3.17x |
+
+These results match the expected behavior from the algorithms. For small inputs, the parallel versions do not always help because thread creation, file reading, automaton construction, and reduction overhead dominate. For larger inputs, the scan cost becomes large enough that parallelism is useful. The basic Holub-style `parallel` mode works, but it pays the cost of considering several DFA states. The `pruned` mode improves this by reducing candidate states and using compact routes. The `sfa` mode gives the best average speedup on the largest inputs, but it also has a construction cost and possible state-growth cost, so it should be interpreted as a precomputation-oriented approach.
+
+The main conclusion is that parallel regex matching is not automatically faster. It becomes useful when the input is large enough and when the extra automaton work is amortized. This is the main CSE305 point shown by the benchmark.
 
 The final report will state the machine used for the benchmark runs, including the CPU and number of cores. The code is intended to be buildable with CMake on the Salle info machines.
 
