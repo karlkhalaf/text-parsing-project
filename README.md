@@ -263,7 +263,7 @@ For the supported regex subset, we can also compare with `std::regex` on small e
 
 ## Build And Run
 
-The build system is CMake. On a machine with CMake installed, the usual commands are:
+The project uses CMake and standard C++17. Starting from a fresh clone or after `git pull`, the full build and test sequence is:
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
@@ -271,21 +271,29 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The command-line interface currently supports sequential, full parallel, pruned parallel, and SFA matching. The default task is `search`, because that is the closest to the project statement. The `full` task is still available for the simpler automata membership problem and for validation.
+The executable is then available at `build/regex_matcher`. It supports four modes:
+
+- `sequential`, the dense sequential DFA baseline;
+- `parallel`, the Holub-style chunk mapping algorithm;
+- `pruned`, the PaREM-inspired version with candidate pruning and route vectors;
+- `sfa`, the simultaneous finite automaton version.
+
+It also supports two tasks:
+
+- `search`, the default task, checks whether the regex occurs somewhere in the text;
+- `full` checks whether the whole text is accepted by the regex.
+
+Some small manual examples are:
 
 ```bash
-./regex_matcher --regex "abb" --text "xxabbxx" --mode sequential --task search
-./regex_matcher --regex "abb" --text "xxabbxx" --mode parallel --task search --threads 4
-./regex_matcher --regex "abb" --text "xxabbxx" --mode pruned --task search --threads 4
-./regex_matcher --regex "abb" --text "xxabbxx" --mode sfa --task search --threads 4
-./regex_matcher --regex "(a|b)*" --text "abba" --mode parallel --task full --threads 4
+./build/regex_matcher --regex "abb" --text "xxabbxx" --task search --mode sequential
+./build/regex_matcher --regex "abb" --text "xxabbxx" --task search --mode parallel --threads 4
+./build/regex_matcher --regex "abb" --text "xxabbxx" --task search --mode pruned --threads 4
+./build/regex_matcher --regex "abb" --text "xxabbxx" --task search --mode sfa --threads 4
+./build/regex_matcher --regex "(a|b)*" --text "abba" --task full --mode parallel --threads 4
 ```
 
-### CLI Options
-
-The executable can be run with different tasks and algorithms, so the evaluator can choose the case they want to test.
-
-The most useful options are:
+The most useful command-line options are:
 
 - `--regex PATTERN`, regex to compile;
 - `--text TEXT`, input text given directly on the command line;
@@ -294,49 +302,59 @@ The most useful options are:
 - `--mode sequential|parallel|pruned|sfa`, choose the matching algorithm;
 - `--threads N`, number of worker threads for the parallel modes.
 
-The default task is `search`, because it is closest to the project statement about looking for a pattern inside a large text. In this task, the program builds a DFA for `Sigma* pattern Sigma*`, so running the usual DFA acceptance algorithm answers the question "does the pattern occur somewhere in the text?". The `full` task is still kept because it is the clean automata membership problem and it is useful for validating the parallel DFA algorithm.
-
-Examples:
-
-```bash
-./regex_matcher --regex "abb" --text "xxabbxx" --task search --mode sequential
-./regex_matcher --regex "abb" --text "xxabbxx" --task search --mode parallel --threads 4
-./regex_matcher --regex "(a|b)*" --text "abba" --task full --mode sfa --threads 4
-./regex_matcher --regex "error" --input data/log.txt --task search --mode pruned --threads 4
-```
-
-All modes use the same regex-to-DFA pipeline first. The difference is only how the resulting automaton is evaluated on the text:
-
-- `sequential` runs the DFA normally from left to right;
-- `parallel` follows the Holub-style chunk mapping method;
-- `pruned` adds the PaREM-inspired candidate pruning and route representation;
-- `sfa` uses the precomputed simultaneous finite automaton representation.
-
-The benchmark scripts are a first baseline for the current implementation. They generate input files, run the sequential, full parallel, pruned parallel, and SFA matchers on both `full` and `search` tasks, and prepare a CSV summary:
+To reproduce the benchmark campaign from scratch, first build in Release mode as above, then generate the benchmark inputs:
 
 ```bash
 python3 scripts/generate_inputs.py
-python3 scripts/run_benchmarks.py --exe build/regex_matcher --repeats 3 --threads 1,2,4,8,16 --tasks search,full --modes sequential,parallel,pruned,sfa --warmup 1
+```
+
+This creates generated text files in `data/benchmark_inputs/`. The default benchmark sizes are:
+
+- `medium`, 1 million characters;
+- `large`, 50 million characters;
+- `huge`, 500 million characters;
+- `gigantic`, 1 billion characters.
+
+The generated inputs are not committed to Git, and the full default generation needs several GB of disk space. To run exactly the same benchmark setup used for the final results, use:
+
+```bash
+python3 scripts/run_benchmarks.py \
+  --exe build/regex_matcher \
+  --repeats 3 \
+  --threads 1,2,4,8,16 \
+  --tasks search,full \
+  --modes sequential,parallel,pruned,sfa \
+  --warmup 1
 python3 scripts/plot_results.py
 ```
 
-This produces both detailed and summarized outputs:
+The benchmark runner uses the regex cases defined in `scripts/run_benchmarks.py`. The full-text cases are `a*`, `(a|b|c)*`, `(a|b|c)*abc(a|b|c)*`, and `(a|b|c)*(ab*cac*b)(a|b|c)*`. The search cases are `aaa`, `abc`, `(a|b|c)*abc`, and `ab*cac*b`.
 
-- `results/benchmark_summary.csv`, detailed averages for each regex case
-- `results/benchmark_overview.csv`, averages grouped by task, input size, mode, and thread count
-- `results/benchmark_report_speedups.csv`, a compact table for the report
-- `results/benchmark_case_details.csv`, per-regex details for comparing simple and larger cases
-- `results/plots/`, detailed per-regex plots
-- `results/plots_summary/`, easier-to-read summary plots
+The scripts produce:
 
-For a quick local smoke test, use only the smallest generated inputs:
+- `results/benchmark_baseline.csv`, raw timings;
+- `results/benchmark_summary.csv`, detailed averages for each regex case;
+- `results/benchmark_overview.csv`, averages grouped by task, input size, mode, and thread count;
+- `results/benchmark_report_speedups.csv`, a compact table for the report;
+- `results/benchmark_case_details.csv`, per-regex details;
+- `results/plots/`, detailed per-regex plots;
+- `results/plots_summary/`, summary plots.
+
+For a quick smoke test that does not generate the full 1B-character inputs, use:
 
 ```bash
 python3 scripts/generate_inputs.py --sizes medium
-python3 scripts/run_benchmarks.py --exe build/regex_matcher --sizes medium --repeats 1 --threads 1 --modes sequential,parallel --tasks search
+python3 scripts/run_benchmarks.py \
+  --exe build/regex_matcher \
+  --sizes medium \
+  --repeats 1 \
+  --threads 1,2 \
+  --modes sequential,parallel \
+  --tasks search
+python3 scripts/plot_results.py
 ```
 
-Generated input files and result files are ignored by Git. We will use the same scripts as a starting point for the final benchmark comparison.
+On Windows/MSYS2, the executable path may be `build/regex_matcher.exe`. Generated input files and result files are ignored by Git.
 
 ### Benchmark Analysis Summary
 
