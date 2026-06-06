@@ -193,7 +193,6 @@ For this project, the precomputation-based extension is the SFA mode. The implem
 
 ### Milestone 3: Counting occurrences
 
-- Extend the matcher to count occurrences if feasible.
 - For each chunk and starting state, store both the end state and the number of final states reached.
 - Combine counts during reduction.
 - Add tests for repeated matches and boundary cases.
@@ -212,11 +211,6 @@ For this project, the precomputation-based extension is the SFA mode. The implem
 - Combine route vectors with an associative reduction.
 - Compare full enumeration with the pruned version.
 - Measure when pruning helps and when its overhead is not worth it.
-
-### Milestone 6: Optional extensions
-
-- Add a small SFA prototype or a theoretical comparison.
-- Consider a GPU version only if the CPU version is already correct, benchmarked, and documented.
 
 ## Benchmark Plan
 
@@ -250,8 +244,6 @@ Expected trends to verify:
 - PaREM-style pruning can help when many transitions are impossible
 - too many threads can stop helping because of overhead and memory bandwidth
 
-We should not claim performance results before benchmarks are actually run.
-
 ## Correctness And Validation Plan
 
 Correctness comes before speed. Every parallel result must be compared to the sequential baseline.
@@ -268,51 +260,6 @@ The tests should include:
 - random text where sequential and parallel outputs must agree
 
 For the supported regex subset, we can also compare with `std::regex` on small examples. This is useful as an external check, but the final parallel implementation should still be based on our own DFA representation so that the algorithm remains visible.
-
-## Expected Final Repository Structure
-
-The repository is currently at the roadmap stage. The intended structure may evolve, but the target is:
-
-```text
-src/
-  main.cpp
-  dfa.hpp
-  dfa.cpp
-  nfa.hpp
-  nfa.cpp
-  regex_parser.hpp
-  regex_parser.cpp
-  parallel_matcher.hpp
-  parallel_matcher.cpp
-  benchmark.cpp
-
-tests/
-  test_dfa.cpp
-  test_regex.cpp
-  test_parallel.cpp
-
-scripts/
-  generate_inputs.py
-  run_benchmarks.py
-  plot_results.py
-
-data/
-  small examples or descriptions of generated data
-
-results/
-  CSV files and plots produced later
-
-report/
-  report draft and figures
-
-slides/
-  final presentation material
-
-README.md
-CMakeLists.txt or Makefile
-```
-
-Large generated input files should not be committed. The repository should contain scripts and small examples, not huge benchmark data.
 
 ## Build And Run
 
@@ -417,44 +364,6 @@ The main conclusion is that parallel regex matching is not automatically faster.
 
 The final report will state the machine used for the benchmark runs, including the CPU and number of cores. The code is intended to be buildable with CMake on the Salle info machines.
 
-## Current Status
-
-Current repository status:
-
-- project topic chosen: parallel regex matching
-- main references identified: Holub and Stekr, PaREM, SFA
-- planned approach fixed: sequential DFA first, parallel CPU DFA second, benchmarks third, optimizations after correctness
-- repository roadmap created in this README
-- first C++ project skeleton added
-- basic DFA representation and sequential full-text acceptance started
-- first small DFA test added using a manually built automaton
-- first regex tokenizer started for literals, |, *, and parentheses
-- NFA skeleton with states, transitions, epsilon moves, and sequential acceptance on a hand-built automaton
-- small NFA test added for a manual `a|b` automaton
-- regex parser can build postfix notation for literals, concatenation, union, star, and parentheses
-- Thompson construction builds an NFA from postfix regexes for our supported syntax
-- subset construction converts NFA to DFA for the supported regex subset
-- end-to-end sequential matcher added: regex -> NFA -> DFA -> accepts(text)
-- end-to-end sequential tests added
-- dense DFA transition table added as the planned base for the optimized parallel matchers
-- full and pruned modes now use the dense DFA transition table
-- parallel DFA chunk simulation added, with final state reconstruction from the initial DFA state
-- parallel multi-threaded DFA matching added (chunk mappings computed with std::thread)
-- PaREM-inspired candidate filtering added with boundary depth `k = 3`
-- pruned mode stores compact route vectors instead of full mappings when possible
-- route vectors can be combined with a parallel tree-style reduction
-- pruned parallel mode exposed in the CLI and benchmark runner
-- baseline benchmark scripts added for input generation, timing, CSV summaries, and plots
-- plots compare all non-sequential modes against the sequential baseline
-- SFA construction and sequential SFA matching added
-- parallel SFA mode exposed in the CLI and benchmark runner
-- search task added through a `Sigma* pattern Sigma*` automaton, reusing the same matching engines
-- benchmark runner separates full-text regex cases from search regex cases
-- final benchmark comparison has been run locally, with CSV summaries and plots generated
-- report benchmark tables and plots have been prepared from the measured results
-
-The next step is to finalize the report and slides, making sure the benchmark discussion stays consistent with the measured results and the project references. The main implemented algorithms are now the sequential baseline, the full parallel matcher, the pruned parallel matcher, and the SFA matcher, each usable for both full-text acceptance and search.
-
 ## References
 
 - CSE305 project description, "Parallel text parsing"
@@ -465,4 +374,4 @@ The next step is to finalize the report and slides, making sure the benchmark di
 
 ## Acknowledgement
 
-We acknowledge using AI-assisted tools, mainly Codex, for debugging help, code review, LaTeX editing, and benchmark/plotting support. All algorithmic choices, implementation details, and final explanations are reviewed and understood by the team.
+We acknowledge using AI-assisted tools for debugging help, code review, LaTeX editing, and benchmark/plotting support.
