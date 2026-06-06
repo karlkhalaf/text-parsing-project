@@ -319,7 +319,7 @@ Large generated input files should not be committed. The repository should conta
 The build system is CMake. On a machine with CMake installed, the usual commands are:
 
 ```bash
-cmake -B build
+cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
@@ -334,12 +334,27 @@ The command-line interface currently supports sequential, full parallel, pruned 
 ./regex_matcher --regex "(a|b)*" --text "abba" --mode parallel --task full --threads 4
 ```
 
-The benchmark scripts are a first baseline for the current implementation. They generate small input files, run the sequential, full parallel, pruned parallel, and SFA matchers on both `full` and `search` tasks, and prepare a CSV summary:
+The benchmark scripts are a first baseline for the current implementation. They generate input files, run the sequential, full parallel, pruned parallel, and SFA matchers on both `full` and `search` tasks, and prepare a CSV summary:
 
 ```bash
 python3 scripts/generate_inputs.py
-python3 scripts/run_benchmarks.py --exe build/regex_matcher
+python3 scripts/run_benchmarks.py --exe build/regex_matcher --repeats 5 --threads 1,2,3,4 --tasks search,full --modes sequential,parallel,pruned,sfa --warmup 1
 python3 scripts/plot_results.py
+```
+
+This produces both detailed and summarized outputs:
+
+- `results/benchmark_summary.csv`, detailed averages for each regex case
+- `results/benchmark_overview.csv`, averages grouped by task, input size, mode, and thread count
+- `results/benchmark_report_speedups.csv`, a compact table for the report
+- `results/plots/`, detailed per-regex plots
+- `results/plots_summary/`, easier-to-read summary plots
+
+For a quick local smoke test, use only the small inputs:
+
+```bash
+python3 scripts/generate_inputs.py --sizes small
+python3 scripts/run_benchmarks.py --exe build/regex_matcher --sizes small --repeats 1 --threads 1 --modes sequential,parallel --tasks search
 ```
 
 Generated input files and result files are ignored by Git. We will use the same scripts as a starting point for the final benchmark comparison.

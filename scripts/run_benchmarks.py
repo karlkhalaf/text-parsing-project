@@ -20,7 +20,7 @@ SEARCH_CASES = [
     ("ab_complex_search", "(a|b)*abb", "ab_random"),
 ]
 
-SIZES = ["small", "medium", "large", "xlarge"]
+SIZES = ["small", "medium", "large", "xlarge", "xxlarge", "huge"]
 
 
 def cases_for_task(task: str) -> list[tuple[str, str, str]]:
@@ -66,6 +66,8 @@ def main() -> int:
     parser.add_argument("--threads", default="1,2,3,4")
     parser.add_argument("--modes", default="sequential,parallel,pruned,sfa")
     parser.add_argument("--tasks", default="search,full")
+    parser.add_argument("--sizes", default=",".join(SIZES))
+    parser.add_argument("--warmup", type=int, default=0)
     args = parser.parse_args()
 
     executable = Path(args.exe)
@@ -75,19 +77,23 @@ def main() -> int:
     thread_counts = [int(value) for value in args.threads.split(",") if value.strip()]
     modes = [value.strip() for value in args.modes.split(",") if value.strip()]
     tasks = [value.strip() for value in args.tasks.split(",") if value.strip()]
+    sizes = [value.strip() for value in args.sizes.split(",") if value.strip()]
 
     rows = []
     for task in tasks:
         for case_name, pattern, file_prefix in cases_for_task(task):
-            for size_label in SIZES:
+            for size_label in sizes:
                 input_path = input_dir / f"{file_prefix}_{size_label}.txt"
                 text_size = input_path.stat().st_size
 
-                for repeat in range(args.repeats):
-                    for mode in modes:
-                        mode_threads = [1] if mode == "sequential" else thread_counts
+                for mode in modes:
+                    mode_threads = [1] if mode == "sequential" else thread_counts
 
-                        for threads in mode_threads:
+                    for threads in mode_threads:
+                        for _ in range(args.warmup):
+                            run_once(executable, pattern, input_path, mode, task, threads)
+
+                        for repeat in range(args.repeats):
                             elapsed, result = run_once(executable, pattern, input_path, mode, task, threads)
                             rows.append({
                                 "task": task,

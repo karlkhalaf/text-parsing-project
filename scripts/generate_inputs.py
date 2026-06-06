@@ -8,8 +8,10 @@ import random
 DEFAULT_SIZES = {
     "small": 1_000,
     "medium": 10_000,
-    "large": 50_000,
-    "xlarge": 500_000,
+    "large": 100_000,
+    "xlarge": 1_000_000,
+    "xxlarge": 10_000_000,
+    "huge": 50_000_000,
 }
 
 
@@ -26,13 +28,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Generate small benchmark inputs.")
     parser.add_argument("--output-dir", default="data/benchmark_inputs")
     parser.add_argument("--seed", type=int, default=305)
+    parser.add_argument("--sizes", default=",".join(DEFAULT_SIZES.keys()))
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     rng = random.Random(args.seed)
+    sizes = [value.strip() for value in args.sizes.split(",") if value.strip()]
 
-    for label, size in DEFAULT_SIZES.items():
+    for label in sizes:
+        size = DEFAULT_SIZES[label]
         write_repeated(output_dir / f"a_only_{label}.txt", "a", size)
         write_random(output_dir / f"ab_random_{label}.txt", "ab", size, rng)
         write_random(output_dir / f"abc_random_{label}.txt", "abc", size, rng)
