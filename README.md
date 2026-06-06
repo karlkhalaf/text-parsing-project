@@ -163,7 +163,7 @@ R = S intersect L
 
 This can reduce the amount of speculative work, especially when the transition table is sparse.
 
-For our project, the `pruned` mode is a PaREM-inspired version adapted to our DFA matcher. It uses a small boundary depth, currently two characters, to compute candidate states with the same `S intersect L` idea. It also stores the useful effect of a chunk as route vectors instead of always carrying a full mapping for every DFA state. The route vectors are then combined with an associative tree reduction. This gives us a second parallel mode to compare with the full Holub-style enumeration.
+For our project, the `pruned` mode is a PaREM-inspired version adapted to our DFA matcher. It uses a small boundary depth, currently `k = 3`, to compute candidate states with the same `S intersect L` idea. It also stores the useful effect of a chunk as route vectors instead of always carrying a full mapping for every DFA state. The route vectors are then combined with an associative tree reduction. This gives us a second parallel mode to compare with the full Holub-style enumeration.
 
 ## SFA Precomputation Version
 
@@ -225,7 +225,7 @@ We plan to benchmark the following dimensions:
 | Dimension | Planned values |
 | --- | --- |
 | Text size | 1 million, 50 million, 500 million, and 1 billion characters |
-| Thread count | 1, 2, 3, 4, 8, and 16 |
+| Thread count | 1, 2, 4, 8, and 16 in the final Ferrari run |
 | Regex complexity | full-text star cases, search cases with a required substring, larger DFA |
 | Text type | repeated `a`, random `a/b/c` text |
 | Algorithm | sequential, parallel, pruned, sfa |
@@ -369,7 +369,7 @@ The benchmark scripts are a first baseline for the current implementation. They 
 
 ```bash
 python3 scripts/generate_inputs.py
-python3 scripts/run_benchmarks.py --exe build/regex_matcher --repeats 5 --threads 1,2,3,4,8,16 --tasks search,full --modes sequential,parallel,pruned,sfa --warmup 1
+python3 scripts/run_benchmarks.py --exe build/regex_matcher --repeats 3 --threads 1,2,4,8,16 --tasks search,full --modes sequential,parallel,pruned,sfa --warmup 1
 python3 scripts/plot_results.py
 ```
 
@@ -393,21 +393,25 @@ Generated input files and result files are ignored by Git. We will use the same 
 
 ### Benchmark Analysis Summary
 
-We ran the benchmark campaign in Release mode on one reference machine, using both tasks:
+We ran the benchmark campaign in Release mode on `ferrari.polytechnique.fr`, using both tasks:
 
 - full-text acceptance (`full`);
 - substring search (`search`).
 
-The benchmark compared the four implemented modes: `sequential`, `parallel`, `pruned`, and `sfa`. For each case, results were averaged over several regexes of the same task. The run used 1, 2, 3, and 4 threads, with 5 measured repetitions and one warmup run.
+The benchmark compared the four implemented modes: `sequential`, `parallel`, `pruned`, and `sfa`. For each case, results were averaged over several regexes of the same task. The final run used input sizes of 1M, 50M, 500M, and 1B characters, thread counts 1, 2, 4, 8, and 16, three measured repetitions, and one warmup run.
 
-The detailed CSV and per-regex plots are useful for checking individual cases, but the most readable results are the averaged summaries. On the largest input size (`huge`), the average speedups at 4 threads were:
+The detailed CSV and per-regex plots are useful for checking individual cases, but the most readable results are the averaged summaries. On the largest input size (`gigantic`, 1B characters), the average speedups were:
 
-| Task | parallel | pruned | sfa |
-| --- | ---: | ---: | ---: |
-| search | 1.63x | 2.49x | 3.17x |
-| full | 2.01x | 2.99x | 3.17x |
+| Task | Mode | 4 threads | 16 threads |
+| --- | --- | ---: | ---: |
+| search | parallel | 0.56x | 1.07x |
+| search | pruned | 1.28x | 1.84x |
+| search | sfa | 1.88x | 2.43x |
+| full | parallel | 0.71x | 1.23x |
+| full | pruned | 1.39x | 2.10x |
+| full | sfa | 2.05x | 2.82x |
 
-These results match the expected behavior from the algorithms. For small inputs, the parallel versions do not always help because thread creation, file reading, automaton construction, and reduction overhead dominate. For larger inputs, the scan cost becomes large enough that parallelism is useful. The basic Holub-style `parallel` mode works, but it pays the cost of considering several DFA states. The `pruned` mode improves this by reducing candidate states and using compact routes. The `sfa` mode gives the best average speedup on the largest inputs, but it also has a construction cost and possible state-growth cost, so it should be interpreted as a precomputation-oriented approach.
+These results match the expected behavior from the algorithms. For small inputs, the parallel versions do not always help because file reading, automaton construction, thread creation, memory access, and reduction overhead are large compared with the scan itself. For larger inputs, the scan cost is better amortized. The basic Holub-style `parallel` mode is correct but often weak, especially on the larger regexes, because it pays the cost of considering several DFA states. The `pruned` mode improves this by reducing candidate states, with average candidate sets often around 1.5 to 2 states on the final cases. The `sfa` mode gives the best average speedup on the largest inputs, but it should be read as a precomputation-oriented approach because SFA construction and possible state growth are part of the tradeoff.
 
 The main conclusion is that parallel regex matching is not automatically faster. It becomes useful when the input is large enough and when the extra automaton work is amortized. This is the main CSE305 point shown by the benchmark.
 
@@ -436,7 +440,7 @@ Current repository status:
 - full and pruned modes now use the dense DFA transition table
 - parallel DFA chunk simulation added, with final state reconstruction from the initial DFA state
 - parallel multi-threaded DFA matching added (chunk mappings computed with std::thread)
-- PaREM-inspired candidate filtering added with a two-character boundary depth
+- PaREM-inspired candidate filtering added with boundary depth `k = 3`
 - pruned mode stores compact route vectors instead of full mappings when possible
 - route vectors can be combined with a parallel tree-style reduction
 - pruned parallel mode exposed in the CLI and benchmark runner
