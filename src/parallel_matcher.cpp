@@ -278,11 +278,11 @@ bool parallel_accepts(const Dfa& dfa, std::string_view text, std::size_t chunk_c
     if (chunk_count == 0) {
         return false;
     }
+    const DenseDfa dense(dfa);
     if (chunk_count == 1) {
-        return dfa.accepts(text);
+        return dense.accepts(text);
     }
 
-    const DenseDfa dense(dfa);
     const std::vector<std::string_view> chunks = split_text(text, chunk_count);
     if (chunks.empty()) {
         return dense.is_final(dense.initial_state());
@@ -305,11 +305,11 @@ bool parallel_accepts_pruned(const Dfa& dfa, std::string_view text, std::size_t 
     if (chunk_count == 0) {
         return false;
     }
+    const DenseDfa dense(dfa);
     if (chunk_count == 1) {
-        return dfa.accepts(text);
+        return dense.accepts(text);
     }
 
-    const DenseDfa dense(dfa);
     const std::vector<std::string_view> chunks = split_text(text, chunk_count);
     if (chunks.empty()) {
         return dense.is_final(dense.initial_state());
@@ -342,11 +342,11 @@ bool parallel_accepts_threads(const Dfa& dfa, std::string_view text, std::size_t
     if (thread_count == 0) {
         return false;
     }
+    const DenseDfa dense(dfa);
     if (thread_count == 1) {
-        return dfa.accepts(text);
+        return dense.accepts(text);
     }
 
-    const DenseDfa dense(dfa);
     const std::vector<std::string_view> chunks = split_text(text, thread_count);
     if (chunks.empty()) {
         return dense.is_final(dense.initial_state());
@@ -381,11 +381,11 @@ bool parallel_accepts_pruned_threads(
     if (thread_count == 0) {
         return false;
     }
+    const DenseDfa dense(dfa);
     if (thread_count == 1) {
-        return dfa.accepts(text);
+        return dense.accepts(text);
     }
 
-    const DenseDfa dense(dfa);
     const std::vector<std::string_view> chunks = split_text(text, thread_count);
     if (chunks.empty()) {
         return dense.is_final(dense.initial_state());

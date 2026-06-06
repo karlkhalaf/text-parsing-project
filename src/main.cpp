@@ -1,3 +1,4 @@
+#include "dense_dfa.hpp"
 #include "matcher.hpp"
 #include "parallel_matcher.hpp"
 #include "search_matcher.hpp"
@@ -35,7 +36,7 @@ int main(int argc, char** argv) {
             threads = static_cast<std::size_t>(std::stoul(argv[++i]));
         } else if (arg == "--help") {
             std::cout << "Usage: regex_matcher --regex PATTERN (--text TEXT | --input FILE) "
-                         "[--mode sequential|parallel|pruned|sfa] "
+                         "[--mode sequential|parallel|pruned|sfa|naive] "
                          "[--task search|full] [--threads N]\n";
             return 0;
         }
@@ -73,6 +74,9 @@ int main(int argc, char** argv) {
                                : build_dfa_from_regex(pattern);
         bool ok = false;
         if (mode == "sequential") {
+            const DenseDfa dense(dfa);
+            ok = dense.accepts(text);
+        } else if (mode == "naive") {
             ok = dfa.accepts(text);
         } else if (mode == "parallel") {
             ok = parallel_accepts_threads(dfa, text, threads);
@@ -82,7 +86,7 @@ int main(int argc, char** argv) {
             const Sfa sfa = Sfa::build_from_dfa(dfa);
             ok = sfa.accepts_parallel(text, threads);
         } else {
-            std::cerr << "Unknown --mode (use sequential, parallel, pruned, or sfa)\n";
+            std::cerr << "Unknown --mode (use sequential, parallel, pruned, sfa, or naive)\n";
             return 1;
         }
         std::cout << (ok ? "ACCEPT\n" : "REJECT\n");
