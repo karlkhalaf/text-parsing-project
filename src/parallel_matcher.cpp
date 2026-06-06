@@ -8,7 +8,7 @@
 
 namespace {
 
-constexpr std::size_t PAREM_BOUNDARY_DEPTH = 2;
+constexpr std::size_t PAREM_BOUNDARY_DEPTH = 3;
 
 std::vector<std::string_view> split_text(std::string_view text, std::size_t chunk_count) {
     std::vector<std::string_view> chunks;

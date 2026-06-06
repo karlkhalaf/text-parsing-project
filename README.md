@@ -232,8 +232,8 @@ We plan to benchmark the following dimensions:
 
 The benchmark runner separates the two tasks:
 
-- full-text cases keep regexes such as `a*`, `(a|b)*`, and `(a|b|c)*`, because these are useful for testing the basic DFA membership computation;
-- search cases use regexes such as `aaa`, `abb`, `abc`, and `(a|b)*abb`, because search benchmarks should require a real pattern occurrence and should not rely on regexes that accept the empty string.
+- full-text cases include two simple regexes, `a*` and `(a|b|c)*`, plus two larger automata, `(a|b|c)*abc(a|b|c)*` and `(a|b|c)*(ab*cac*b)(a|b|c)*`;
+- search cases use two simple regexes, `aaa` and `abc`, plus two larger patterns, `(a|b|c)*abc` and `ab*cac*b`, because search benchmarks should require a real pattern occurrence and should not rely on regexes that accept the empty string.
 
 The main metrics will be:
 

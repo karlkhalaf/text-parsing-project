@@ -9,15 +9,16 @@ import time
 
 FULL_CASES = [
     ("a_star", "a*", "a_only"),
-    ("ab_star", "(a|b)*", "ab_random"),
     ("abc_star", "(a|b|c)*", "abc_random"),
+    ("abc_contains_tail", "(a|b|c)*abc(a|b|c)*", "abc_random"),
+    ("abc_contains_block", "(a|b|c)*(ab*cac*b)(a|b|c)*", "abc_random"),
 ]
 
 SEARCH_CASES = [
     ("aaa_search", "aaa", "a_only"),
-    ("abb_search", "abb", "ab_random"),
     ("abc_search", "abc", "abc_random"),
-    ("ab_complex_search", "(a|b)*abb", "ab_random"),
+    ("abc_tail_search", "(a|b|c)*abc", "abc_random"),
+    ("abc_block_search", "ab*cac*b", "abc_random"),
 ]
 
 SIZES = ["small", "medium", "large", "xlarge", "xxlarge", "huge"]
