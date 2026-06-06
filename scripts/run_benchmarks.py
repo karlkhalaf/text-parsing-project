@@ -63,7 +63,7 @@ def main() -> int:
     parser.add_argument("--input-dir", default="data/benchmark_inputs")
     parser.add_argument("--output", default="results/benchmark_baseline.csv")
     parser.add_argument("--repeats", type=int, default=3)
-    parser.add_argument("--threads", default="1,2,3,4")
+    parser.add_argument("--threads", default="1,2,3,4,8,16")
     parser.add_argument("--modes", default="sequential,parallel,pruned,sfa")
     parser.add_argument("--tasks", default="search,full")
     parser.add_argument("--sizes", default=",".join(SIZES))
