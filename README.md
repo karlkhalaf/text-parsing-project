@@ -224,11 +224,11 @@ We plan to benchmark the following dimensions:
 
 | Dimension | Planned values |
 | --- | --- |
-| Text size | small, medium, large, very large |
-| Thread count | 1, 2, 3, 4, then more only if useful |
+| Text size | 1 million, 50 million, 500 million, and 1 billion characters |
+| Thread count | 1, 2, 3, 4, 8, and 16 |
 | Regex complexity | full-text star cases, search cases with a required substring, larger DFA |
-| Text type | random text, English text, log-like text, DNA-like text |
-| Algorithm | sequential, parallel_full, parallel_pruned, sfa |
+| Text type | repeated `a`, random `a/b/c` text |
+| Algorithm | sequential, parallel, pruned, sfa |
 
 The benchmark runner separates the two tasks:
 
@@ -240,8 +240,7 @@ The main metrics will be:
 - runtime
 - speedup, `sequential_time / parallel_time`
 - efficiency, `speedup / number_of_threads`
-- number of DFA states
-- memory usage if it is easy to measure reliably
+- average candidate set size `R` for the pruned mode
 
 Expected trends to verify:
 
@@ -370,7 +369,7 @@ The benchmark scripts are a first baseline for the current implementation. They 
 
 ```bash
 python3 scripts/generate_inputs.py
-python3 scripts/run_benchmarks.py --exe build/regex_matcher --repeats 5 --threads 1,2,3,4 --tasks search,full --modes sequential,parallel,pruned,sfa --warmup 1
+python3 scripts/run_benchmarks.py --exe build/regex_matcher --repeats 5 --threads 1,2,3,4,8,16 --tasks search,full --modes sequential,parallel,pruned,sfa --warmup 1
 python3 scripts/plot_results.py
 ```
 
@@ -379,14 +378,15 @@ This produces both detailed and summarized outputs:
 - `results/benchmark_summary.csv`, detailed averages for each regex case
 - `results/benchmark_overview.csv`, averages grouped by task, input size, mode, and thread count
 - `results/benchmark_report_speedups.csv`, a compact table for the report
+- `results/benchmark_case_details.csv`, per-regex details for comparing simple and larger cases
 - `results/plots/`, detailed per-regex plots
 - `results/plots_summary/`, easier-to-read summary plots
 
-For a quick local smoke test, use only the small inputs:
+For a quick local smoke test, use only the smallest generated inputs:
 
 ```bash
-python3 scripts/generate_inputs.py --sizes small
-python3 scripts/run_benchmarks.py --exe build/regex_matcher --sizes small --repeats 1 --threads 1 --modes sequential,parallel --tasks search
+python3 scripts/generate_inputs.py --sizes medium
+python3 scripts/run_benchmarks.py --exe build/regex_matcher --sizes medium --repeats 1 --threads 1 --modes sequential,parallel --tasks search
 ```
 
 Generated input files and result files are ignored by Git. We will use the same scripts as a starting point for the final benchmark comparison.

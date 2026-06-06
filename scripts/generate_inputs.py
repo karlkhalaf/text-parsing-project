@@ -6,21 +6,32 @@ import random
 
 
 DEFAULT_SIZES = {
-    "small": 100_000,
     "medium": 1_000_000,
     "large": 50_000_000,
-    "huge": 400_000_000,
+    "huge": 500_000_000,
     "gigantic": 1_000_000_000,
 }
 
 
 def write_repeated(path: Path, symbol: str, size: int) -> None:
-    path.write_text(symbol * size, encoding="utf-8")
+    chunk_size = 1_000_000
+    chunk = symbol * chunk_size
+    with path.open("w", encoding="utf-8") as output:
+        remaining = size
+        while remaining > 0:
+            current = min(chunk_size, remaining)
+            output.write(chunk[:current])
+            remaining -= current
 
 
 def write_random(path: Path, alphabet: str, size: int, rng: random.Random) -> None:
-    text = "".join(rng.choice(alphabet) for _ in range(size))
-    path.write_text(text, encoding="utf-8")
+    chunk_size = 1_000_000
+    with path.open("w", encoding="utf-8") as output:
+        remaining = size
+        while remaining > 0:
+            current = min(chunk_size, remaining)
+            output.write("".join(rng.choice(alphabet) for _ in range(current)))
+            remaining -= current
 
 
 def main() -> int:

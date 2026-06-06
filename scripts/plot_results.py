@@ -5,7 +5,7 @@ from pathlib import Path
 import argparse
 import csv
 
-SIZE_ORDER = ["small", "medium", "large", "xlarge", "xxlarge", "huge"]
+SIZE_ORDER = ["small", "medium", "large", "xlarge", "xxlarge", "huge", "gigantic"]
 MODE_ORDER = ["sequential", "parallel", "pruned", "sfa"]
 
 
@@ -20,10 +20,18 @@ def load_rows(path: Path) -> list[dict[str, str]]:
 
 def compute_summary(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     grouped: dict[tuple[str, str, str, str, str], list[float]] = defaultdict(list)
+    r_values: dict[tuple[str, str, str, str, str], list[float]] = defaultdict(list)
+    max_r_values: dict[tuple[str, str, str, str, str], list[float]] = defaultdict(list)
+    patterns: dict[tuple[str, str], str] = {}
     for row in rows:
         task = row.get("task", "full")
         key = (task, row["case"], row["size_label"], row["mode"], row["threads"])
         grouped[key].append(float(row["runtime_seconds"]))
+        patterns[(task, row["case"])] = row.get("pattern", "")
+        if row.get("avg_R"):
+            r_values[key].append(float(row["avg_R"]))
+        if row.get("max_R"):
+            max_r_values[key].append(float(row["max_R"]))
 
     sequential_times: dict[tuple[str, str, str], float] = {}
     for (task, case, size_label, mode, threads), values in grouped.items():
@@ -40,12 +48,17 @@ def compute_summary(rows: list[dict[str, str]]) -> list[dict[str, str]]:
         summary.append({
             "task": task,
             "case": case,
+            "pattern": patterns.get((task, case), ""),
             "size_label": size_label,
             "mode": mode,
             "threads": threads,
             "avg_runtime_seconds": f"{runtime:.8f}",
             "speedup_vs_sequential": f"{speedup:.4f}",
             "efficiency": f"{efficiency:.4f}",
+            "avg_R": f"{average(r_values[(task, case, size_label, mode, threads)]):.2f}"
+            if r_values[(task, case, size_label, mode, threads)] else "",
+            "max_R": f"{max(max_r_values[(task, case, size_label, mode, threads)]):.0f}"
+            if max_r_values[(task, case, size_label, mode, threads)] else "",
         })
 
     return summary
@@ -69,7 +82,7 @@ def mode_key(mode: str) -> int:
 
 def compute_overview(summary: list[dict[str, str]]) -> list[dict[str, str]]:
     grouped: dict[tuple[str, str, str, str], dict[str, list[float] | set[str]]] = defaultdict(
-        lambda: {"runtime": [], "speedup": [], "efficiency": [], "cases": set()}
+        lambda: {"runtime": [], "speedup": [], "efficiency": [], "avg_R": [], "max_R": [], "cases": set()}
     )
     for row in summary:
         key = (row["task"], row["size_label"], row["mode"], row["threads"])
@@ -77,6 +90,10 @@ def compute_overview(summary: list[dict[str, str]]) -> list[dict[str, str]]:
         grouped[key]["speedup"].append(float(row["speedup_vs_sequential"]))
         grouped[key]["efficiency"].append(float(row["efficiency"]))
         grouped[key]["cases"].add(row["case"])
+        if row.get("avg_R"):
+            grouped[key]["avg_R"].append(float(row["avg_R"]))
+        if row.get("max_R"):
+            grouped[key]["max_R"].append(float(row["max_R"]))
 
     overview = []
     for (task, size_label, mode, threads), values in sorted(
@@ -92,6 +109,8 @@ def compute_overview(summary: list[dict[str, str]]) -> list[dict[str, str]]:
             "avg_runtime_seconds": f"{average(values['runtime']):.8f}",
             "avg_speedup_vs_sequential": f"{average(values['speedup']):.4f}",
             "avg_efficiency": f"{average(values['efficiency']):.4f}",
+            "avg_R": f"{average(values['avg_R']):.2f}" if values["avg_R"] else "",
+            "max_R": f"{max(values['max_R']):.0f}" if values["max_R"] else "",
         })
 
     return overview
@@ -112,6 +131,8 @@ def compute_report_table(overview: list[dict[str, str]]) -> list[dict[str, str]]
             "speedup_t4": "",
             "efficiency_t4": "",
             "runtime_t4_seconds": "",
+            "avg_R_t4": "",
+            "max_R_t4": "",
         })
         threads = row["threads"]
         if threads in {"1", "2", "3", "4"}:
@@ -119,10 +140,64 @@ def compute_report_table(overview: list[dict[str, str]]) -> list[dict[str, str]]
         if threads == "4":
             item["efficiency_t4"] = row["avg_efficiency"]
             item["runtime_t4_seconds"] = row["avg_runtime_seconds"]
+            item["avg_R_t4"] = row.get("avg_R", "")
+            item["max_R_t4"] = row.get("max_R", "")
 
     return [
         grouped[key]
         for key in sorted(grouped, key=lambda key: (key[0], size_key(key[1]), mode_key(key[2])))
+    ]
+
+
+def compute_case_table(summary: list[dict[str, str]]) -> list[dict[str, str]]:
+    grouped: dict[tuple[str, str, str, str], dict[str, str]] = {}
+    for row in summary:
+        key = (row["task"], row["size_label"], row["case"], row["pattern"])
+        item = grouped.setdefault(key, {
+            "task": row["task"],
+            "size_label": row["size_label"],
+            "case": row["case"],
+            "pattern": row["pattern"],
+            "sequential_time": "",
+            "parallel_t4_speedup": "",
+            "pruned_t4_speedup": "",
+            "pruned_avg_R_t4": "",
+            "pruned_max_R_t4": "",
+            "sfa_t4_speedup": "",
+            "parallel_t16_speedup": "",
+            "pruned_t16_speedup": "",
+            "sfa_t16_speedup": "",
+            "best_t4_mode": "",
+            "best_t4_speedup": "",
+        })
+
+        mode = row["mode"]
+        threads = row["threads"]
+        if mode == "sequential" and threads == "1":
+            item["sequential_time"] = row["avg_runtime_seconds"]
+        if threads == "4" and mode in {"parallel", "pruned", "sfa"}:
+            item[f"{mode}_t4_speedup"] = row["speedup_vs_sequential"]
+            if mode == "pruned":
+                item["pruned_avg_R_t4"] = row.get("avg_R", "")
+                item["pruned_max_R_t4"] = row.get("max_R", "")
+        if threads == "16" and mode in {"parallel", "pruned", "sfa"}:
+            item[f"{mode}_t16_speedup"] = row["speedup_vs_sequential"]
+
+    for item in grouped.values():
+        candidates = [
+            ("parallel", item["parallel_t4_speedup"]),
+            ("pruned", item["pruned_t4_speedup"]),
+            ("sfa", item["sfa_t4_speedup"]),
+        ]
+        candidates = [(mode, float(value)) for mode, value in candidates if value]
+        if candidates:
+            best_mode, best_speedup = max(candidates, key=lambda value: value[1])
+            item["best_t4_mode"] = best_mode
+            item["best_t4_speedup"] = f"{best_speedup:.4f}"
+
+    return [
+        grouped[key]
+        for key in sorted(grouped, key=lambda key: (key[0], size_key(key[1]), key[2]))
     ]
 
 
@@ -179,7 +254,7 @@ def try_plot_overview(overview: list[dict[str, str]], output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     tasks = sorted({row["task"] for row in overview})
     sizes = sorted({row["size_label"] for row in overview}, key=size_key)
-    largest_sizes = [size for size in ["xlarge", "xxlarge", "huge"] if size in sizes]
+    largest_sizes = sizes[-3:]
 
     for task in tasks:
         for size_label in largest_sizes:
@@ -287,15 +362,20 @@ def print_table(title: str, headers: list[str], rows: list[list[str]]) -> None:
         print(" | ".join(value.ljust(widths[i]) for i, value in enumerate(row)))
 
 
-def print_terminal_summary(overview: list[dict[str, str]], report_table: list[dict[str, str]]) -> None:
-    huge_rows = [
+def print_terminal_summary(
+    overview: list[dict[str, str]],
+    report_table: list[dict[str, str]],
+    case_table: list[dict[str, str]],
+) -> None:
+    largest_size = max({row["size_label"] for row in overview}, key=size_key)
+    largest_rows = [
         row for row in report_table
-        if row["size_label"] == "huge" and row["mode"] != "sequential"
+        if row["size_label"] == largest_size and row["mode"] != "sequential"
     ]
     speedup_rows = []
-    for task in sorted({row["task"] for row in huge_rows}, reverse=True):
+    for task in sorted({row["task"] for row in largest_rows}, reverse=True):
         for mode in [mode for mode in MODE_ORDER if mode != "sequential"]:
-            row = next((item for item in huge_rows if item["task"] == task and item["mode"] == mode), None)
+            row = next((item for item in largest_rows if item["task"] == task and item["mode"] == mode), None)
             if row is None:
                 continue
             speedup_rows.append([
@@ -306,12 +386,34 @@ def print_terminal_summary(overview: list[dict[str, str]], report_table: list[di
                 row["speedup_t3"],
                 row["speedup_t4"],
                 row["efficiency_t4"],
+                row["avg_R_t4"],
             ])
 
     print_table(
-        "Huge input average speedups",
-        ["task", "mode", "1 thread", "2 threads", "3 threads", "4 threads", "eff@4"],
+        f"{largest_size} input average speedups",
+        ["task", "mode", "1 thread", "2 threads", "3 threads", "4 threads", "eff@4", "avg_R@4"],
         speedup_rows,
+    )
+
+    case_rows = []
+    for row in case_table:
+        if row["size_label"] != largest_size:
+            continue
+        case_rows.append([
+            row["task"],
+            row["case"],
+            row["sequential_time"],
+            row["parallel_t4_speedup"],
+            row["pruned_t4_speedup"],
+            row["pruned_avg_R_t4"],
+            row["sfa_t4_speedup"],
+            row["best_t4_mode"],
+        ])
+
+    print_table(
+        f"{largest_size} per-regex 4-thread details",
+        ["task", "case", "seq time", "parallel", "pruned", "avg_R", "sfa", "best"],
+        case_rows,
     )
 
     best_rows = []
@@ -345,6 +447,7 @@ def main() -> int:
     parser.add_argument("--summary", default="results/benchmark_summary.csv")
     parser.add_argument("--overview", default="results/benchmark_overview.csv")
     parser.add_argument("--report-table", default="results/benchmark_report_speedups.csv")
+    parser.add_argument("--case-table", default="results/benchmark_case_details.csv")
     parser.add_argument("--plot-dir", default="results/plots")
     parser.add_argument("--overview-plot-dir", default="results/plots_summary")
     args = parser.parse_args()
@@ -353,15 +456,18 @@ def main() -> int:
     summary = compute_summary(rows)
     overview = compute_overview(summary)
     report_table = compute_report_table(overview)
+    case_table = compute_case_table(summary)
     write_summary(Path(args.summary), summary)
     write_summary(Path(args.overview), overview)
     write_summary(Path(args.report_table), report_table)
+    write_summary(Path(args.case_table), case_table)
     try_plot(summary, Path(args.plot_dir))
     try_plot_overview(overview, Path(args.overview_plot_dir))
-    print_terminal_summary(overview, report_table)
+    print_terminal_summary(overview, report_table, case_table)
     print(f"wrote summary to {args.summary}")
     print(f"wrote overview to {args.overview}")
     print(f"wrote report table to {args.report_table}")
+    print(f"wrote case table to {args.case_table}")
     return 0
 
 

@@ -3,6 +3,8 @@
 from pathlib import Path
 import argparse
 import csv
+import os
+import re
 import subprocess
 import time
 
@@ -21,7 +23,11 @@ SEARCH_CASES = [
     ("abc_block_search", "ab*cac*b", "abc_random"),
 ]
 
-SIZES = ["small", "medium", "large", "huge", "gigantic"]
+SIZES = ["medium", "large", "huge", "gigantic"]
+PAREM_STATS_PATTERN = re.compile(
+    r"PAREM_STATS depth=(?P<depth>\d+) chunks=(?P<chunks>\d+) "
+    r"avg_R=(?P<avg_R>[0-9.]+) max_R=(?P<max_R>\d+)"
+)
 
 
 def cases_for_task(task: str) -> list[tuple[str, str, str]]:
@@ -32,7 +38,14 @@ def cases_for_task(task: str) -> list[tuple[str, str, str]]:
     raise ValueError(f"unknown task: {task}")
 
 
-def run_once(executable: Path, pattern: str, input_path: Path, mode: str, task: str, threads: int) -> tuple[float, str]:
+def run_once(
+    executable: Path,
+    pattern: str,
+    input_path: Path,
+    mode: str,
+    task: str,
+    threads: int,
+) -> tuple[float, str, dict[str, str]]:
     command = [
         str(executable),
         "--regex",
@@ -47,15 +60,28 @@ def run_once(executable: Path, pattern: str, input_path: Path, mode: str, task: 
         str(threads),
     ]
 
+    env = os.environ.copy()
+    if mode == "pruned":
+        env["PAREM_STATS"] = "1"
+
     start = time.perf_counter()
-    completed = subprocess.run(command, text=True, capture_output=True)
+    completed = subprocess.run(command, text=True, capture_output=True, env=env)
     elapsed = time.perf_counter() - start
 
     if completed.returncode not in (0, 2):
         message = completed.stderr.strip() or completed.stdout.strip()
         raise RuntimeError(f"benchmark command failed: {message}")
 
-    return elapsed, completed.stdout.strip()
+    stats = {"parem_depth": "", "avg_R": "", "max_R": ""}
+    match = PAREM_STATS_PATTERN.search(completed.stderr)
+    if match is not None:
+        stats = {
+            "parem_depth": match.group("depth"),
+            "avg_R": match.group("avg_R"),
+            "max_R": match.group("max_R"),
+        }
+
+    return elapsed, completed.stdout.strip(), stats
 
 
 def main() -> int:
@@ -80,6 +106,11 @@ def main() -> int:
     tasks = [value.strip() for value in args.tasks.split(",") if value.strip()]
     sizes = [value.strip() for value in args.sizes.split(",") if value.strip()]
 
+    print("benchmark cases")
+    for task in tasks:
+        for case_name, pattern, file_prefix in cases_for_task(task):
+            print(f"{task:6s} {case_name:22s} {pattern:35s} input={file_prefix}")
+
     rows = []
     for task in tasks:
         for case_name, pattern, file_prefix in cases_for_task(task):
@@ -95,7 +126,14 @@ def main() -> int:
                             run_once(executable, pattern, input_path, mode, task, threads)
 
                         for repeat in range(args.repeats):
-                            elapsed, result = run_once(executable, pattern, input_path, mode, task, threads)
+                            elapsed, result, stats = run_once(
+                                executable,
+                                pattern,
+                                input_path,
+                                mode,
+                                task,
+                                threads,
+                            )
                             rows.append({
                                 "task": task,
                                 "case": case_name,
@@ -108,6 +146,9 @@ def main() -> int:
                                 "repeat": repeat,
                                 "runtime_seconds": f"{elapsed:.8f}",
                                 "result": result,
+                                "parem_depth": stats["parem_depth"],
+                                "avg_R": stats["avg_R"],
+                                "max_R": stats["max_R"],
                             })
 
     with output_path.open("w", newline="", encoding="utf-8") as csv_file:

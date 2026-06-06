@@ -3,6 +3,8 @@
 #include "dense_dfa.hpp"
 
 #include <algorithm>
+#include <cstdlib>
+#include <iostream>
 #include <thread>
 #include <vector>
 
@@ -392,17 +394,21 @@ bool parallel_accepts_pruned_threads(
     }
 
     std::vector<RouteVector> routes(chunks.size(), RouteVector(dense.state_count()));
+    std::vector<std::size_t> candidate_sizes(chunks.size(), 0);
     std::vector<std::thread> workers;
     workers.reserve(chunks.size());
 
     for (std::size_t i = 0; i < chunks.size(); ++i) {
-        workers.emplace_back([&dense, &chunks, &routes, i]() {
+        workers.emplace_back([&dense, &chunks, &routes, &candidate_sizes, i]() {
             const bool is_first_chunk = (i == 0);
             const std::string_view previous_chunk =
                 is_first_chunk ? std::string_view() : chunks[i - 1];
 
             const std::vector<std::size_t> candidates =
                 candidate_states_for_chunk_dense(dense, previous_chunk, chunks[i], is_first_chunk);
+            if (!is_first_chunk) {
+                candidate_sizes[i] = candidates.size();
+            }
 
             routes[i] = simulate_route_for_states_dense(dense, chunks[i], candidates);
         });
@@ -410,6 +416,24 @@ bool parallel_accepts_pruned_threads(
 
     for (std::thread& worker : workers) {
         worker.join();
+    }
+
+    if (std::getenv("PAREM_STATS") != nullptr) {
+        std::size_t sum = 0;
+        std::size_t count = 0;
+        std::size_t maximum = 0;
+        for (std::size_t i = 1; i < candidate_sizes.size(); ++i) {
+            sum += candidate_sizes[i];
+            maximum = std::max(maximum, candidate_sizes[i]);
+            ++count;
+        }
+        const double average =
+            (count == 0) ? 0.0 : static_cast<double>(sum) / static_cast<double>(count);
+        std::cerr << "PAREM_STATS depth=" << PAREM_BOUNDARY_DEPTH
+                  << " chunks=" << count
+                  << " avg_R=" << average
+                  << " max_R=" << maximum
+                  << "\n";
     }
 
     const std::size_t end_state = apply_routes_parallel(routes, dense.initial_state());
